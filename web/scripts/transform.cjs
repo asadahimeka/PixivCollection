@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { join } = require('node:path')
 const { readdir, readFile, writeFile } = require('node:fs/promises')
 
@@ -13,6 +14,7 @@ async function main() {
         results.push({
           id: json.id,
           part: 0,
+          len: 1,
           images: {
             s: json.image_urls.square_medium,
             m: json.image_urls.medium,
@@ -35,11 +37,11 @@ async function main() {
           x_restrict: json.x_restrict,
           isAI: json.illust_ai_type === 2,
         })
-      }
-      else {
+      } else {
         results.push(...json.meta_pages.map((e, i) => ({
           id: json.id,
           part: i,
+          len: json.meta_pages.length,
           images: {
             s: e.image_urls.square_medium,
             m: e.image_urls.medium,
@@ -67,8 +69,7 @@ async function main() {
     console.log('results.length: ', results.length)
     await writeFile('./images.json', JSON.stringify(results.sort((a, b) => b.id - a.id)))
     // await writeFile('./images.f.json', JSON.stringify(results, null, 2))
-  }
-  catch (err) {
+  } catch (err) {
     console.error(err.message)
   }
 }

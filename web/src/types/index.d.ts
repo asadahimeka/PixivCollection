@@ -3,6 +3,7 @@ declare global {
   interface Image {
     id: number
     part: number
+    len: number
     title: string
     size: [number, number]
     ext: string

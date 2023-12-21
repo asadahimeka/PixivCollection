@@ -320,23 +320,27 @@ function downloadImage() {
   link.click()
 }
 
+const { imgDir } = (window as any).__CONFIG__
 function getImageSrc(img: Image) {
-  if (!img) { return '' }
-  // return img.images.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+_webp/, '')
+  if (!imgDir) {
+    // return img.images.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+_webp/, '')
+    return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  }
 
   // eslint-disable-next-line no-control-regex
   const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.part == 0 ? '' : `_p${img.part}`}${img.ext}`
-  return convertFileSrc(`E:\\Pictures\\Pixiv\\[bookmark] Public\\${fileName}`)
+  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
+  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
 }
 
 function getImageDlSrc(img: Image) {
-  if (!img) { return '' }
-  // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  if (!imgDir) {
+    return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  }
 
   // eslint-disable-next-line no-control-regex
   const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.part == 0 ? '' : `_p${img.part}`}${img.ext}`
-  return convertFileSrc(`E:\\Pictures\\Pixiv\\[bookmark] Public\\${fileName}`)
+  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
+  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
 }
 </script>

@@ -7,6 +7,26 @@
     <title>PixivCollection</title>
   </head>
   <body>
+    <script>
+      window.__CONFIG__ = {
+        jsonPath: localStorage.getItem('__PXCT_IMG_JSON_PATH'),
+        imgDir: localStorage.getItem('__PXCT_IMG_DIR')
+      }
+      if (!window.__CONFIG__.jsonPath) {
+        const jsonPath = prompt('请输入图片数据 JSON 所在的磁盘路径( \\ 需要写成 / )')
+        if (jsonpath) {
+          window.__CONFIG__.jsonPath = jsonPath
+          localStorage.setItem('__PXCT_IMG_JSON_PATH', jsonPath)
+        }
+      }
+      if (!window.__CONFIG__.imgDir) {
+        const imgDir = prompt('请输入本地图片所在的文件夹路径( \\ 需要写成 / )')
+        if (imgDir) {
+          window.__CONFIG__.imgDir = imgDir
+          localStorage.setItem('__PXCT_IMG_DIR', imgDir)
+        }
+      }
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

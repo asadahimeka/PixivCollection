@@ -16,12 +16,14 @@
             <!-- {{ formatBytes(receivedLength) }} <span v-if="contentLength"> / {{ formatBytes(contentLength) }}</span> -->
           </div>
         </template>
-        <template v-else>
+        <template v-if="!loading||!showView">
           无数据
         </template>
       </Tip>
-      <MasonryView />
-      <ImageViewer />
+      <template v-if="showView">
+        <MasonryView />
+        <ImageViewer />
+      </template>
     </div>
   </div>
 </template>
@@ -47,6 +49,9 @@ const {
 const loading = ref(true)
 // const receivedLength = ref(0)
 // const contentLength = ref(0)
+
+const { jsonPath } = (window as any).__CONFIG__
+const showView = ref(!!jsonPath)
 
 onMounted(async () => {
   store.settings.register('preferColorScheme', preferColorScheme)
@@ -79,7 +84,7 @@ onMounted(async () => {
     // const result = new TextDecoder('utf-8').decode(chunksAll)
     // store.images = JSON.parse(result)
 
-    const contents = await readTextFile('E:\\Pictures\\Pixiv\\data\\images.json')
+    const contents = await readTextFile(jsonPath)
     store.images = JSON.parse(contents)
   } catch (e) {
     console.error(e)

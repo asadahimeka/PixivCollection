@@ -185,13 +185,16 @@ function handleClickTag(tagName: string) {
   }
 }
 
+const { imgDir } = (window as any).__CONFIG__
 function getImageSrc(img: Image) {
-  // return img.images.m.replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  if (!imgDir) {
+    return img.images.m.replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  }
 
   // eslint-disable-next-line no-control-regex
   const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.part == 0 ? '' : `_p${img.part}`}${img.ext}`
-  return convertFileSrc(`E:\\Pictures\\Pixiv\\[bookmark] Public\\${fileName}`)
+  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
+  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
 }
 
 function randomBg() {
