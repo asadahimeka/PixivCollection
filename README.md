@@ -1,6 +1,6 @@
 <h1 align="center"><span style="color: #0398fa;">Pixiv</span>Collection</h1>
 
-![preview](docs/screenshot.jpg)
+![preview](./web/docs/screenshot.jpg)
 
 
 ## 简介
