@@ -1,33 +1,12 @@
 {
   "name": "pixiv-collection",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
   "scripts": {
-    "build": "vue-tsc && vite build",
-    "dev": "vite --host",
-    "preview": "vite preview",
-    "lint": "eslint src"
+    "tauri": "tauri"
   },
   "dependencies": {
-    "@orilight/vue-settings": "^1.2.2",
-    "@vueuse/core": "^10.6.1",
-    "pinia": "^2.1.7",
-    "vue": "^3.3.8"
+    "@tauri-apps/api": "^1.5.3"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^1.2.1",
-    "@types/node": "^18.18.10",
-    "@vitejs/plugin-vue": "^4.5.0",
-    "autoprefixer": "^10.4.16",
-    "eslint": "^8.54.0",
-    "eslint-plugin-tailwindcss": "^3.13.0",
-    "postcss": "^8.4.31",
-    "tailwindcss": "^3.3.5",
-    "typescript": "^5.2.2",
-    "unplugin-auto-import": "^0.16.7",
-    "unplugin-vue-components": "^0.25.2",
-    "vite": "^5.0.0",
-    "vue-tsc": "^1.8.22"
+    "@tauri-apps/cli": "^1.5.9"
   }
 }
