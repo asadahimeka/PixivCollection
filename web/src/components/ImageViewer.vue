@@ -22,13 +22,13 @@
           >
             <IconInfo class="mx-auto h-7 w-7" />
           </button>
-          <button
+          <!-- <button
             class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
             title="下载原图"
             @click="downloadImage"
           >
             <IconDownload class="mx-auto h-7 w-7" />
-          </button>
+          </button> -->
           <div
             v-if="loadingImage"
             class="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-black/40 text-white transition-colors"
@@ -106,6 +106,7 @@
             left: `${imagePos.x}px`,
             top: `${imagePos.y}px`,
           }"
+          loading="lazy"
           @mousedown.prevent="handleMouseDragStart"
           @touchstart.prevent="handleTouchStart"
         >

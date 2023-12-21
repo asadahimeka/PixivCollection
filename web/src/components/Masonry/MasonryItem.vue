@@ -24,6 +24,7 @@
       <img
         class="w-full cursor-pointer"
         :src="imageLoad ? getImageSrc(imageData) : ''"
+        loading="lazy"
         @load="handleImageLoaded"
         @click="$emit('viewImage', imageIndex)"
       >

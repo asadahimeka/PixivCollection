@@ -317,9 +317,9 @@
           <CButton class="mb-1" @click="clearLocalSettings">
             还原默认设置
           </CButton>
-          <CButton class="mb-1" @click="loadDataFromFile">
+          <!-- <CButton class="mb-1" @click="loadDataFromFile">
             从文件加载元数据
-          </CButton>
+          </CButton> -->
           <CButton class="mb-1" @click="exportFilteredData">
             导出当前筛选结果
           </CButton>
