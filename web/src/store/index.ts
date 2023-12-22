@@ -38,7 +38,7 @@ export const useStore = defineStore('main', {
       virtualListEnable: true,
       showShadow: false,
 
-      useLocalImage: !!(<any>window).__CONFIG__.imgDir,
+      useLocalImage: true,
       useFancybox: false,
     },
     filterConfig: {
