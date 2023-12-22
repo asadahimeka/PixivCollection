@@ -313,13 +313,27 @@
         <div class="flex items-center">
           显示卡片阴影<Switch v-model="masonryConfig.showShadow" class="ml-3" />
         </div>
+        <div v-if="isTauri" class="flex items-center">
+          使用本地图片<Switch v-model="masonryConfig.useLocalImage" class="ml-3" />
+        </div>
+        <div class="flex items-center">
+          使用 Fancybox 查看大图<Switch v-model="masonryConfig.useFancybox" class="ml-3" />
+        </div>
+        <div class="my-1" title="如果设置了用户 ID 的话则不读取本地图片数据">
+          设置用户 ID
+          <input
+            v-model="userId"
+            class="mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
+            placeholder="如果设置了用户 ID 的话则不读取本地图片数据">
+          <CButton class="ml-1" @click="saveReload">保存</CButton>
+        </div>
         <div class="mt-1">
           <CButton class="mb-1" @click="clearLocalSettings">
             还原默认设置
           </CButton>
-          <!-- <CButton class="mb-1" @click="loadDataFromFile">
+          <CButton class="mb-1" @click="loadDataFromFile">
             从文件加载元数据
-          </CButton> -->
+          </CButton>
           <CButton class="mb-1" @click="exportFilteredData">
             导出当前筛选结果
           </CButton>
@@ -333,6 +347,14 @@
 import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, MASONRY_IMAGE_SIZE_LIST, MASONRY_MAX_COLUMNS } from '@/config'
 import { useStore } from '@/store'
 import { exportFile } from '@/utils'
+
+const isTauri = !!(<any>window).__TAURI__
+const { __CONFIG__ } = (<any>window)
+const userId = ref(__CONFIG__.userId)
+function saveReload() {
+  localStorage.setItem('__PXCT_USER_ID', userId.value)
+  location.reload()
+}
 
 const store = useStore()
 const {

@@ -23,7 +23,7 @@
       </Transition>
       <img
         class="w-full cursor-pointer"
-        :src="imageLoad ? getImageSrc(imageData) : ''"
+        :src="imageLoad ? getImageMediumSrc(store, imageData) : ''"
         loading="lazy"
         @load="handleImageLoaded"
         @click="$emit('viewImage', imageIndex)"
@@ -125,11 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { convertFileSrc } from '@tauri-apps/api/tauri'
 
 import { IMAGE_FORMAT_THUMBNAIL, IMAGE_PATH_THUMBNAIL, MASONRY_LOAD_DELAY } from '@/config'
 import { useStore } from '@/store'
-import { openPixivIllust, openPixivUser } from '@/utils'
+import { openPixivIllust, openPixivUser, getImageMediumSrc } from '@/utils'
 
 const props = defineProps<{
   imageData: Image
@@ -184,18 +183,6 @@ function handleClickTag(tagName: string) {
     filterConfig.value.tag.name = tagName
     filterConfig.value.tag.enable = true
   }
-}
-
-const { imgDir } = (window as any).__CONFIG__
-function getImageSrc(img: Image) {
-  if (!imgDir) {
-    return img.images.m.replace('i.pximg.net', 'pximg.cocomi.eu.org')
-  }
-
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
 }
 
 function randomBg() {

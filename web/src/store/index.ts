@@ -2,6 +2,8 @@ import { Settings } from '@orilight/vue-settings'
 import { useFullscreen, usePreferredColorScheme } from '@vueuse/core'
 import { defineStore } from 'pinia'
 
+import { getImageLargeSrc } from '@/utils'
+
 export const useStore = defineStore('main', {
   state: () => ({
     showSidebar: false,
@@ -35,6 +37,9 @@ export const useStore = defineStore('main', {
       showTagTranslation: true,
       virtualListEnable: true,
       showShadow: false,
+
+      useLocalImage: !!(<any>window).__CONFIG__.imgDir,
+      useFancybox: false,
     },
     filterConfig: {
       search: {
@@ -263,16 +268,36 @@ export const useStore = defineStore('main', {
     },
     viewImage(idx: number): void {
       if (idx < 0 || idx >= this.imagesFiltered.length) { return }
-      this.openImageViewer(
-        this.imagesFiltered[idx],
-        () => {
-          this.viewImage(idx - 1)
-        },
-        () => {
-          this.viewImage(idx + 1)
-        },
-        idx,
-      )
+      const actItem = this.imagesFiltered[idx]
+      if (this.masonryConfig.useFancybox) {
+        const list: Image[]  = [actItem]
+        if (actItem.len > 1) {
+          for (let i = 1; i < actItem.len; i++) {
+            list.push(this.imagesFiltered[idx + i])
+          }
+        }
+        (window as any).Fancybox.show(list.map(e => ({ src: getImageLargeSrc(this, e) })), {
+          startIndex: 0,
+          Thumbs: { showOnStart: false },
+          Carousel: { infinite: false },
+          Toolbar: {
+            display: {
+              right: ["iterateZoom", "rotateCCW", "rotateCW", "flipX", "flipY", "fullscreen", "close"],
+            },
+          },
+        })
+      } else {
+        this.openImageViewer(
+          actItem,
+          () => {
+            this.viewImage(idx - 1)
+          },
+          () => {
+            this.viewImage(idx + 1)
+          },
+          idx,
+        )
+      }
     },
   },
 })

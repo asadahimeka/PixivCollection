@@ -11,7 +11,7 @@
           <button
             class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
             title="复位图片"
-            @click="restoreImage"
+            @click="restoreImage()"
           >
             <IconTablet class="mx-auto h-7 w-7" />
           </button>
@@ -22,13 +22,13 @@
           >
             <IconInfo class="mx-auto h-7 w-7" />
           </button>
-          <!-- <button
+          <button
             class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
             title="下载原图"
             @click="downloadImage"
           >
             <IconDownload class="mx-auto h-7 w-7" />
-          </button> -->
+          </button>
           <div
             v-if="loadingImage"
             class="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-black/40 text-white transition-colors"
@@ -54,6 +54,9 @@
               {{ imageViewer.info.author.name }}
             </p>
             <p class="mt-2">
+              <span v-if="imageViewer.info.x_restrict === 1" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-red-500/60">R18</span>
+              <span v-if="imageViewer.info.x_restrict === 2" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-red-500/60">R18G</span>
+              <span v-if="imageViewer.info.isAI" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-blue-500/60">AI 生成</span>
               <span
                 v-for="tag, idx in imageViewer.info.tags"
                 v-show="!tag.name.includes('users入り') || filterConfig.tag.includeBookmark" :key="idx"
@@ -116,16 +119,16 @@
 </template>
 
 <script setup lang="ts">
-import { convertFileSrc } from '@tauri-apps/api/tauri'
-
 import { useMouse } from '@vueuse/core'
 import { useStore } from '@/store'
 import { IMAGE_FORMAT_PREVIEW, IMAGE_PATH_ORIGINAL, IMAGE_PATH_PREVIEW } from '@/config'
-import { openPixivIllust, openPixivUser } from '@/utils'
+import { openPixivIllust, openPixivUser, getImageLargeSrc, getImageOriginalSrc as getImageDlSrc } from '@/utils'
 
 const store = useStore()
 const { imageViewer, filterConfig, masonryConfig } = toRefs(store)
 const { show: imageViewerShow, info: imageViewerInfo } = toRefs(imageViewer.value)
+
+const getImageSrc = (img: Image) => getImageLargeSrc(store, img)
 
 const imageRatio = ref(1)
 const imagePos = ref({ x: 0, y: 0 })
@@ -163,6 +166,7 @@ watch(imageViewerInfo, val => {
 
   imageLoader = new Image()
   imageLoader.addEventListener('load', () => {
+    restoreImage()
     if (`${val.id}_${val.part}` === loadingImageId.value) {
       loadingImage.value = false
       preloadNearbyImage(imageViewer.value.index)
@@ -197,8 +201,8 @@ function restoreImage() {
   if (!imageViewer.value.info) { return }
   // const TEMP_N = 1200
   // if (imageViewer.value.info.size[0] <= TEMP_N && imageViewer.value.info.size[1] <= TEMP_N) {
-  imageSize.width = imageViewer.value.info.size[0]
-  imageSize.height = imageViewer.value.info.size[1]
+  imageSize.width = imageLoader?.width || imageViewer.value.info.size[0]
+  imageSize.height = imageLoader?.height || imageViewer.value.info.size[1]
   // } else {
   //   if (imageViewer.value.info.size[0] > imageViewer.value.info.size[1]) {
   //     imageSize.width = TEMP_N
@@ -319,29 +323,5 @@ function downloadImage() {
   // link.href = `${IMAGE_PATH_ORIGINAL}${imageViewer.value.info.id}_p${imageViewer.value.info.part}.${imageViewer.value.info.ext}`
   link.href = getImageDlSrc(imageViewer.value.info)
   link.click()
-}
-
-const { imgDir } = (window as any).__CONFIG__
-function getImageSrc(img: Image) {
-  if (!imgDir) {
-    // return img.images.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+_webp/, '')
-    return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
-  }
-
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
-}
-
-function getImageDlSrc(img: Image) {
-  if (!imgDir) {
-    return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
-  }
-
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
 }
 </script>

@@ -14,9 +14,9 @@ export default defineConfig({
   server: {
     port: 3000,
   },
-  build: {
-    copyPublicDir: false,
-  },
+  // build: {
+  //   copyPublicDir: false,
+  // },
   plugins: [
     vue(),
     AutoImport({
