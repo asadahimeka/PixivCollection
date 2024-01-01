@@ -22,12 +22,12 @@
             <div class="text-center">OR</div>
           </template>
           <template v-if="!userId">
-            <div class="my-1 p-1" :title="isTauri ? '如果设置了用户 ID 的话则不读取本地图片数据' : null">
+            <div class="my-1 p-1" :title="isTauri ? '如果设置了用户 ID 的话则不读取本地图片数据' : ''">
               设置用户 ID
               <input
                 v-model="userId"
                 class="w-[250px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : null">
+                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : ''">
             </div>
             <CButton class="block mx-auto my-5 bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
           </template>
