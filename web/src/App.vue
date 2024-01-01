@@ -21,14 +21,16 @@
             <CButton class="block mx-auto mb-1" @click="setImgDir">选择本地图片所在的文件夹路径</CButton>
             <div class="text-center">OR</div>
           </template>
-          <div class="my-1 p-1" title="如果设置了用户 ID 的话则不读取本地图片数据">
-            设置用户 ID
-            <input
-              v-model="userId"
-              class="w-[250px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-              placeholder="设置 ID 的话则不读本地图片数据">
-          </div>
-          <CButton class="block mx-auto my-5 bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
+          <template v-if="!userId">
+            <div class="my-1 p-1" :title="isTauri ? '如果设置了用户 ID 的话则不读取本地图片数据' : null">
+              设置用户 ID
+              <input
+                v-model="userId"
+                class="w-[250px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
+                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : null">
+            </div>
+            <CButton class="block mx-auto my-5 bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
+          </template>
         </div>
       </template>
       <template v-else>
@@ -60,8 +62,8 @@ const {
 const loading = ref(true)
 const moreLoading = ref(false)
 
-const isTauri = !!(<any>window).__TAURI__
-const { __CONFIG__ } = (<any>window)
+const isTauri = !!(window as any).__TAURI__
+const { __CONFIG__ } = window as any
 const notSettled = !__CONFIG__.jsonPath || !__CONFIG__.userId
 const userId = ref(__CONFIG__.userId)
 
@@ -115,7 +117,7 @@ let maxBookmarkId = '0'
 async function fetchUserBookmarks() {
   try {
     moreLoading.value = true
-    const resp = await fetch(`https://hibiapi.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}`)
+    const resp = await fetch(`https://hibiapi1.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}`)
     const json = await resp.json()
     maxBookmarkId = new URL(json.next_url).searchParams.get('max_bookmark_id') || '0'
     store.images = store.images.concat(transformResData(json.illusts))
