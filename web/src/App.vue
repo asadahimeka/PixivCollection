@@ -21,7 +21,7 @@
             <CButton class="block mx-auto mb-1" @click="setImgDir">选择本地图片所在的文件夹路径</CButton>
             <div class="text-center">OR</div>
           </template>
-          <template v-if="!userId">
+          <template v-if="!__CONFIG__.userId">
             <div class="my-1 p-1" :title="isTauri ? '如果设置了用户 ID 的话则不读取本地图片数据' : ''">
               设置用户 ID
               <input
