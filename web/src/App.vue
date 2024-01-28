@@ -27,7 +27,12 @@
               <input
                 v-model="userId"
                 class="w-[250px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : ''">
+                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : '输入你的用户 ID (数字)'">
+            </div>
+            <div class="text-center">
+              <p>如何获取你的 ID：</p>
+              <p class="mb-2">访问你的个人主页然后复制地址栏中的数字</p>
+              <img style="margin: auto;" src="https://upload-bbs.miyoushe.com/upload/2024/01/28/190122060/7c26a8882d5f9788e3ff224bffe484ce_8510401254923221347.png" alt="">
             </div>
             <CButton class="block mx-auto my-5 bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
           </template>

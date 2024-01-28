@@ -323,7 +323,7 @@
           设置用户 ID
           <input
             v-model="userId"
-            class="mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
+            class="max-w-[200px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
             placeholder="如果设置了用户 ID 的话则不读取本地图片数据">
           <CButton class="ml-1" @click="saveReload">保存</CButton>
         </div>
