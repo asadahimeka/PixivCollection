@@ -39,7 +39,7 @@
         <Transition name="popup">
           <div
             v-if="imageViewer.info && imageViewer.showInfo"
-            class="fixed bottom-0 left-0 h-fit w-full rounded-t-[30px] bg-black/40 p-4 pb-10 text-white backdrop-blur-md sm:relative sm:w-[300px] sm:rounded-b-[30px]"
+            class="fixed bottom-0 left-0 h-fit w-full rounded-t-[30px] bg-black/40 p-4 pb-12 text-white backdrop-blur-md sm:relative sm:w-[300px] sm:rounded-b-[30px]"
           >
             <p
               class="cursor-pointer truncate font-bold transition-colors hover:text-blue-500"
@@ -66,7 +66,8 @@
                 {{ masonryConfig.showTagTranslation ? tag.translated_name || tag.name : tag.name }}
               </span>
             </p>
-            <p class="absolute bottom-4 left-4 text-xs text-gray-300">
+            <p class="absolute bottom-2 left-5 text-xs text-gray-300">
+              {{ imageViewer.info.created_at }}<br>
               {{ imageViewer.info.id }}
               {{ `p${imageViewer.info.part}` }}
               {{ `${imageViewer.info.size[0]}×${imageViewer.info.size[1]}` }}

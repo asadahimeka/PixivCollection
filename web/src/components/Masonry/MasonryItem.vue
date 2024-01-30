@@ -36,6 +36,7 @@
       >
         <p
           class="cursor-pointer truncate font-bold transition-colors hover:text-blue-500"
+          :title="imageData.created_at"
           @click="openPixivIllust(imageData.id)"
         >
           {{ imageData.title }}
@@ -64,7 +65,7 @@
           </span>
         </p>
         <p class="mt-0.5 flex items-center whitespace-nowrap text-left text-xs text-gray-500">
-          {{ imageData.id }}
+          <span :title="imageData.created_at">{{ imageData.id }}_</span>
           {{ `p${imageData.part}` }}
           {{ `${imageData.size[0]}×${imageData.size[1]}` }}
           {{ `L${imageData.sanity_level}` }}

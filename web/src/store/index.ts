@@ -74,7 +74,7 @@ export const useStore = defineStore('main', {
         min: 0,
       },
       restrict: {
-        maxSanityLevel: 2,
+        maxSanityLevel: 6,
         r18: 'hidden' as 'hidden' | 'show' | 'only',
       },
     },

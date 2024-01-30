@@ -122,7 +122,7 @@ let maxBookmarkId = '0'
 async function fetchUserBookmarks() {
   try {
     moreLoading.value = true
-    const resp = await fetch(`https://hibiapi1.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}`)
+    const resp = await fetch(`https://hibiapi5.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}`)
     const json = await resp.json()
     maxBookmarkId = new URL(json.next_url).searchParams.get('max_bookmark_id') || '0'
     store.images = store.images.concat(transformResData(json.illusts))
