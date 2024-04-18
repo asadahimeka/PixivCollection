@@ -31,7 +31,7 @@ export function exportFile(data: string, filename = 'export-{ts}.json') {
 const { imgDir } = (window as any).__CONFIG__
 export function getImageMediumSrc(store: any, img: Image) {
   if (!store.masonryConfig.useLocalImage || !imgDir) {
-    return img.images?.m.replace('i.pximg.net', 'i.pixiv.pics') || `https://f.pixiv.pics/pid/${img.id}?size=medium`
+    return img.images?.m.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
   }
 
   // eslint-disable-next-line no-control-regex
@@ -42,8 +42,8 @@ export function getImageMediumSrc(store: any, img: Image) {
 
 export function getImageLargeSrc(store: any, img: Image) {
   if (!store.masonryConfig.useLocalImage || !imgDir) {
-    return img.images?.l.replace('i.pximg.net', 'i.pixiv.pics').replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.pixiv.pics/pid/${img.id}?size=large&p=${img.part}`
-    // return img.images.o.replace('i.pximg.net', 'i.pixiv.pics')
+    return img.images?.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.cocomi.eu.org/pid/${img.id}?size=large&p=${img.part}`
+    // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
   }
 
   // eslint-disable-next-line no-control-regex
@@ -53,5 +53,5 @@ export function getImageLargeSrc(store: any, img: Image) {
 }
 
 export function getImageOriginalSrc(img: Image) {
-  return img.images?.o.replace('i.pximg.net', 'i.pixiv.pics') || `https://f.pixiv.pics/pid/${img.id}?p=${img.part}`
+  return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?p=${img.part}`
 }
