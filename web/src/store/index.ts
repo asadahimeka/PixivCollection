@@ -37,9 +37,12 @@ export const useStore = defineStore('main', {
       showTagTranslation: true,
       virtualListEnable: true,
       showShadow: false,
-
+      imageSortBy: 'id_desc' as 'id_desc' | 'id_asc' | 'bookmark_desc',
       useLocalImage: true,
       useFancybox: false,
+      sliceLocalImages: false,
+      loadImagesJsonByLocalHttp: true,
+      loadImageByLocalHttp: false,
     },
     filterConfig: {
       search: {
@@ -298,6 +301,17 @@ export const useStore = defineStore('main', {
           idx,
         )
       }
+    },
+    sortImages(): void {
+      this.images.sort((a, b) => {
+        if (a.id === b.id)
+          return a.part - b.part
+        if (this.masonryConfig.imageSortBy === 'bookmark_desc')
+          return b.bookmark - a.bookmark
+        if (this.masonryConfig.imageSortBy === 'id_desc')
+          return b.id - a.id
+        return (a.id - b.id)
+      })
     },
   },
 })

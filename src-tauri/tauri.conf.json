@@ -5,10 +5,10 @@
     "version": "1.0.0"
   },
   "build": {
-    "distDir": "../dist",
-    "devPath": "../dist",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
+    "distDir": "../web/dist",
+    "devPath": "http://localhost:8080",
+    "beforeDevCommand": "cd web && npm run dev",
+    "beforeBuildCommand": "cd web && npm run build",
     "withGlobalTauri": true
   },
   "tauri": {

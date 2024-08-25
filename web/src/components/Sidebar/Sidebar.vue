@@ -80,6 +80,24 @@
         <div class="flex items-center">
           使用标签翻译<Switch v-model="masonryConfig.showTagTranslation" class="ml-3" />
         </div>
+        <div class="mt-1">
+          图片排序:
+          <select
+            v-model="masonryConfig.imageSortBy"
+            class="mx-1 rounded-md border px-1 py-0.5 transition-colors hover:border-blue-500 dark:border-white/20 dark:bg-[#1a1a1a] dark:hover:border-blue-500"
+            @change="store.sortImages"
+          >
+            <option value="id_desc">
+              ID 降序
+            </option>
+            <option value="id_asc">
+              ID 升序
+            </option>
+            <option value="bookmark_desc">
+              收藏数降序
+            </option>
+          </select>
+        </div>
       </SidebarBlock>
       <SidebarHead>图片筛选</SidebarHead>
       <SidebarBlock>
@@ -319,6 +337,15 @@
         <div class="flex items-center">
           使用 Fancybox 查看大图<Switch v-model="masonryConfig.useFancybox" class="ml-3" />
         </div>
+        <div v-if="isTauri" class="flex items-center">
+          使用本地 HTTP 服务加载图片列表<Switch v-model="masonryConfig.loadImagesJsonByLocalHttp" class="ml-3" />
+        </div>
+        <div v-if="isTauri" class="flex items-center">
+          使用本地 HTTP 服务加载图片<Switch v-model="masonryConfig.loadImageByLocalHttp" class="ml-3" />
+        </div>
+        <div v-if="isTauri" class="flex items-center">
+          分页加载本地图片数据<Switch v-model="masonryConfig.sliceLocalImages" class="ml-3" />
+        </div>
         <div class="my-1" title="如果设置了用户 ID 的话则不读取本地图片数据">
           设置用户 ID
           <input
@@ -337,6 +364,12 @@
           <CButton class="mb-1" @click="exportFilteredData">
             导出当前筛选结果
           </CButton>
+        </div>
+        <div class="text-xs">
+          图片: {{ images.length }}
+          作品: {{ illustCount }}
+          作者: {{ authorCount }}
+          标签: {{ tagCount }}
         </div>
       </SidebarBlock>
     </div>
@@ -373,6 +406,10 @@ const showFullAuthor = ref(false)
 const showFullTags = ref(false)
 const searchAuthor = ref('')
 const searchTag = ref('')
+
+const illustCount = computed(() => new Set(images.value.map(i => i.id)).size)
+const authorCount = computed(() => new Set(images.value.map(i => i.author.id)).size)
+const tagCount = computed(() => new Set(images.value.flatMap(i => i.tags.map(t => t.name))).size)
 
 const filteredAuthors = computed(() => {
   if (searchAuthor.value !== '') {
@@ -436,7 +473,7 @@ watchEffect(() => {
       if (Object.hasOwn(_tags, tag.name)) { _tags[tag.name].count++ } else { _tags[tag.name] = { ...tag, count: 1 } }
     })
   })
-  years.value = _years
+  years.value = _years.sort((a, b) => b - a)
   tags.value = Object.keys(_tags)
     .map(tagName => _tags[tagName])
     .filter(tag => !tag.name.includes('users入り') || filterConfig.value.tag.includeBookmark)

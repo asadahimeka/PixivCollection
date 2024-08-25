@@ -30,26 +30,54 @@ export function exportFile(data: string, filename = 'export-{ts}.json') {
 
 const { imgDir } = (window as any).__CONFIG__
 export function getImageMediumSrc(store: any, img: Image) {
+  // eslint-disable-next-line no-control-regex
+  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
+  const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
+  // const fileName = `${fileNameWoExt}.${img.ext}`
+
+  if (store.masonryConfig.useLocalImage  && store.masonryConfig.loadImageByLocalHttp) {
+    if (img.images?.o.includes('_ugoira')) {
+      return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
+    }
+    return `http://localhost:32154/bookmark_webp/${fileNameWoExt}.webp`
+  }
+
   if (!store.masonryConfig.useLocalImage || !imgDir) {
     return img.images?.m.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
   }
 
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
+  if (img.images?.o.includes('_ugoira')) {
+    return convertFileSrc(`E:/Pictures/Pixiv/bookmark_ugoira/${fileNameWoExt}.mp4`)
+  }
+  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileNameWoExt}.webp`)
 }
 
 export function getImageLargeSrc(store: any, img: Image) {
+  // eslint-disable-next-line no-control-regex
+  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
+  const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
+  // const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
+
+  if (store.masonryConfig.useLocalImage  && store.masonryConfig.loadImageByLocalHttp) {
+    if (img.images?.o.includes('_ugoira')) {
+      return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
+    }
+    return `http://localhost:32154/bookmark_webp/${fileNameWoExt}.webp`
+  }
+
   if (!store.masonryConfig.useLocalImage || !imgDir) {
+    if (img.images?.o.includes('_ugoira')) {
+      return `https://ugoira-mp4-dl.cocomi.eu.org/${img.id}.mp4`
+      // return `https://hibiapi.cocomi.eu.org/api/ugoira/${img.id}.mp4`
+    }
     return img.images?.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.cocomi.eu.org/pid/${img.id}?size=large&p=${img.part}`
     // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
   }
 
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileName}`)
+  if (img.images?.o.includes('_ugoira')) {
+    return convertFileSrc(`E:/Pictures/Pixiv/bookmark_ugoira/${fileNameWoExt}.mp4`)
+  }
+  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileNameWoExt}.webp`)
 }
 
 export function getImageOriginalSrc(img: Image) {

@@ -2,19 +2,12 @@
   <Transition name="fade">
     <div
       v-show="imageViewer.show"
-      class="fixed left-0 top-0 h-screen w-full bg-black/50 backdrop-blur-lg"
-
+      class="_backdrop_cont fixed left-0 top-0 h-screen w-full bg-black/50 backdrop-blur-lg"
+      @click="handleBackClick"
       @wheel.prevent="handleWheelScroll"
     >
       <div class="absolute left-2 top-2 z-50 flex gap-2">
         <div class="flex flex-col gap-2">
-          <button
-            class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
-            title="复位图片"
-            @click="restoreImage()"
-          >
-            <IconTablet class="mx-auto h-7 w-7" />
-          </button>
           <button
             class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
             title="显示图片信息"
@@ -22,13 +15,22 @@
           >
             <IconInfo class="mx-auto h-7 w-7" />
           </button>
-          <button
-            class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
-            title="下载原图"
-            @click="downloadImage"
-          >
-            <IconDownload class="mx-auto h-7 w-7" />
-          </button>
+          <template v-if="!imageSrc.endsWith('.mp4')">
+            <button
+              class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
+              title="复位图片"
+              @click="restoreImage()"
+            >
+              <IconTablet class="mx-auto h-7 w-7" />
+            </button>
+            <button
+              class="h-[60px] w-[60px] rounded-full bg-black/40 text-center text-white transition-colors hover:bg-gray-900/40"
+              title="下载原图"
+              @click="downloadImage"
+            >
+              <IconDownload class="mx-auto h-7 w-7" />
+            </button>
+          </template>
           <div
             v-if="loadingImage"
             class="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-black/40 text-white transition-colors"
@@ -99,12 +101,24 @@
         <IconRight class="mx-auto h-6 w-6 translate-x-0.5 stroke-2" />
       </button>
       <div class="relative">
+        <div v-if="imageSrc.endsWith('.mp4')" class="_backdrop_cont" style="display: flex;justify-content: center;align-items: center;width: 100vw;height: 100vh;">
+          <video
+            class="touch-none select-none"
+            :class="{'': !imageGragging}"
+            :src="imageSrc"
+            loading="lazy"
+            loop
+            muted
+            autoplay
+            style="max-width: 100vw;max-height: 100vh;"
+            @loadedmetadata="loadingImage=false"
+          ></video>
+        </div>
         <img
+          v-else
           :src="imageSrc"
           class="absolute max-w-none cursor-grab touch-none select-none active:cursor-grabbing"
-          :class="{
-            '': !imageGragging,
-          }"
+          :class="{'': !imageGragging}"
           :style="{
             transform: `scale(${imageRatio})`,
             left: `${imagePos.x}px`,
@@ -122,7 +136,7 @@
 <script setup lang="ts">
 import { useMouse } from '@vueuse/core'
 import { useStore } from '@/store'
-import { IMAGE_FORMAT_PREVIEW, IMAGE_PATH_ORIGINAL, IMAGE_PATH_PREVIEW } from '@/config'
+// import { IMAGE_FORMAT_PREVIEW, IMAGE_PATH_ORIGINAL, IMAGE_PATH_PREVIEW } from '@/config'
 import { openPixivIllust, openPixivUser, getImageLargeSrc, getImageOriginalSrc as getImageDlSrc } from '@/utils'
 
 const store = useStore()
@@ -146,6 +160,13 @@ let startDistance = 0
 let initialRatio = 0
 let imageLoader: HTMLImageElement
 const imageSize = { width: 0, height: 0 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 
 watch(imageViewerShow, val => {
   if (!val) {
@@ -315,6 +336,21 @@ function handleZoom(newRatio: number, centerPostiion: { x: number; y: number }, 
   }
 
   imageRatio.value = newRatio
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  if (!imageViewer.value.show)
+    return
+  if (e.key === 'ArrowLeft')
+    store.imageViewer.prev()
+  else if (e.key === 'ArrowRight')
+    store.imageViewer.next()
+}
+
+function handleBackClick(e: MouseEvent) {
+  if ((e.target as HTMLElement).classList.contains('_backdrop_cont')) {
+    store.closeImageViewer()
+  }
 }
 
 function downloadImage() {

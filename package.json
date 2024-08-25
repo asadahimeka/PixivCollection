@@ -1,12 +1,14 @@
 {
   "name": "pixiv-collection",
   "scripts": {
-    "tauri": "tauri"
+    "dev": "tauri dev",
+    "build:win": "tauri build --target x86_64-pc-windows-msvc",
+    "build:mac": "tauri build --target universal-apple-darwin"
   },
   "dependencies": {
-    "@tauri-apps/api": "^1.5.3"
+    "@tauri-apps/api": "^1.5.6"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.9"
+    "@tauri-apps/cli": "^1.5.14"
   }
 }

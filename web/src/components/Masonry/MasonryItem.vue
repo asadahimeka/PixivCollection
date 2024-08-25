@@ -14,16 +14,29 @@
     >
       <Transition name="fade-slow">
         <div
-          v-show="!imageLoaded"
+          v-if="!imageLoaded"
           class="absolute h-full w-full"
           :style="{
             background: randomBg(),
           }"
         ></div>
       </Transition>
+      <template v-if="imgSrc.endsWith('.mp4')">
+        <video
+          class="w-full cursor-pointer"
+          :src="imageLoad ? imgSrc : ''"
+          loading="lazy"
+          @loadeddata="handleImageLoaded"
+          @click="$emit('viewImage', imageIndex)"
+        ></video>
+        <div class="absolute right-1 top-1 flex items-center rounded-full bg-black/50 px-2 py-0.5 text-sm text-white">
+          动图
+        </div>
+      </template>
       <img
+        v-else
         class="w-full cursor-pointer"
-        :src="imageLoad ? getImageMediumSrc(store, imageData) : ''"
+        :src="imageLoad ? imgSrc : ''"
         loading="lazy"
         @load="handleImageLoaded"
         @click="$emit('viewImage', imageIndex)"
@@ -152,6 +165,8 @@ let timer: NodeJS.Timeout | null = null
 const store = useStore()
 const imageLoad = ref(false)
 const imageLoaded = ref(false)
+
+const imgSrc = computed(() => getImageMediumSrc(store, props.imageData))
 
 const imageIdxStr = `${props.imageData.id * 100 + props.imageData.part}`
 

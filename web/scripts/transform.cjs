@@ -67,8 +67,9 @@ async function main() {
       }
     }
     console.log('results.length: ', results.length)
-    await writeFile('./images.json', JSON.stringify(results.sort((a, b) => b.id - a.id)))
-    // await writeFile('./images.f.json', JSON.stringify(results, null, 2))
+    //await writeFile('./images.json', JSON.stringify(results.sort((a, b) => b.id - a.id)))
+    await writeFile(join(dirPath, '../images.json'), JSON.stringify(results))
+    //await writeFile('./images.f.json', JSON.stringify(results, null, 2))
   } catch (err) {
     console.error(err.message)
   }

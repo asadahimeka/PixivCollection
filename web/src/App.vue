@@ -1,9 +1,5 @@
 <template>
-  <div
-    :class="{
-      dark: colorScheme === 'dark',
-    }"
-  >
+  <div :class="{ dark: colorScheme === 'dark' }">
     <div class="min-h-screen transition-colors dark:bg-[#1a1a1a] dark:text-white">
       <Sidebar />
       <SidebarMask />
@@ -18,22 +14,24 @@
         <div v-if="!loading && notSettled" class="my-2 text-center">
           <template v-if="isTauri">
             <CButton class="mx-auto mb-1 block" @click="setJsonPath">选择图片数据 JSON 磁盘路径</CButton>
+            <p v-if="displayJsonPath">{{ displayJsonPath }}</p>
             <CButton class="mx-auto mb-1 block" @click="setImgDir">选择本地图片所在的文件夹路径</CButton>
-            <div class="text-center">OR</div>
+            <p v-if="displayImgDir">{{ displayImgDir }}</p>
+            <div class="my-2 text-center font-bold">OR</div>
           </template>
           <template v-if="!__CONFIG__.userId">
             <div class="my-1 p-1" :title="isTauri ? '如果设置了用户 ID 的话则不读取本地图片数据' : ''">
               设置用户 ID
-              <input
-                v-model="userId"
+              <input v-model="userId"
                 class="mx-1 w-[250px] rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : '输入你的用户 ID (数字)'"
-              >
+                :placeholder="isTauri ? '设置 ID 的话则不读本地图片数据' : '输入你的用户 ID (数字)'">
             </div>
             <div class="text-center">
               <p>如何获取你的 ID：</p>
               <p class="mb-2">访问你的个人主页然后复制地址栏中的数字</p>
-              <img style="margin: auto;" src="https://upload-bbs.miyoushe.com/upload/2024/01/28/190122060/7c26a8882d5f9788e3ff224bffe484ce_8510401254923221347.png" alt="">
+              <img style="margin: auto;"
+                src="https://upload-bbs.miyoushe.com/upload/2024/01/28/190122060/7c26a8882d5f9788e3ff224bffe484ce_8510401254923221347.png"
+                alt="">
             </div>
             <CButton class="mx-auto my-5 block bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
           </template>
@@ -42,7 +40,7 @@
       <template v-else>
         <MasonryView />
         <ImageViewer />
-        <CButton class="mx-auto my-5 block" @click="fetchUserBookmarks">{{ moreLoading ? '加载中' : '加载更多' }}</CButton>
+        <CButton class="mx-auto my-5 block" @click="fetchMore">{{ moreLoading ? '加载中' : '加载更多' }}</CButton>
       </template>
     </div>
   </div>
@@ -67,16 +65,21 @@ const {
 
 const loading = ref(true)
 const moreLoading = ref(false)
+const curPageCursor = ref(0)
 
 const isTauri = !!(window as any).__TAURI__
 const { __CONFIG__ } = window as any
 const notSettled = !__CONFIG__.jsonPath || !__CONFIG__.userId
 const userId = ref(__CONFIG__.userId)
 
+const displayJsonPath = ref(__CONFIG__.jsonPath || '')
+const displayImgDir = ref(__CONFIG__.imgDir || '')
+
 async function setJsonPath() {
   const jsonPath = await openFileDialog()
   if (typeof jsonPath == 'string') {
     __CONFIG__.jsonPath = jsonPath
+    displayJsonPath.value = jsonPath
   }
 }
 
@@ -84,6 +87,7 @@ async function setImgDir() {
   const imgDir = await openFileDialog({ directory: true })
   if (typeof imgDir == 'string') {
     __CONFIG__.imgDir = imgDir
+    displayImgDir.value = imgDir
   }
 }
 
@@ -109,8 +113,21 @@ onMounted(async () => {
     if (__CONFIG__.userId) {
       await fetchUserBookmarks()
     } else if (isTauri && __CONFIG__.jsonPath) {
-      const contents = await readTextFile(__CONFIG__.jsonPath)
-      store.images = JSON.parse(contents)
+      let contents = []
+      if (store.masonryConfig.loadImagesJsonByLocalHttp) {
+        contents = await (await fetch('http://localhost:32154/data/images.json')).json()
+      } else if (__CONFIG__.jsonPath) {
+        contents = JSON.parse(await readTextFile(__CONFIG__.jsonPath))
+      }
+
+      if (store.masonryConfig.sliceLocalImages) {
+        const w = window as any
+        w.__fullImages__ = contents
+        loadImagesByPage()
+      } else {
+        store.images = contents
+      }
+
     }
   } catch (e) {
     console.error(e)
@@ -119,11 +136,43 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  store.settings.unregisterAll()
+})
+
+function loadImagesByPage() {
+  const w = window as any
+  let res: any[] = w.__fullImages__.slice(curPageCursor.value, curPageCursor.value + 30)
+  const lastEl = res[res.length - 1]
+  if (lastEl.len > 1) {
+    const newLen = store.images.length + res.length
+    res = res.concat(
+      w.__fullImages__.slice(
+        newLen,
+        newLen + lastEl.len - lastEl.part - 1
+      )
+    )
+  }
+  store.images = store.images.concat(res)
+  curPageCursor.value += res.length
+}
+
+async function fetchMore() {
+  if (moreLoading.value) return
+  moreLoading.value = true
+  if (__CONFIG__.userId) {
+    await fetchUserBookmarks()
+  } else if (isTauri && __CONFIG__.jsonPath && store.masonryConfig.sliceLocalImages) {
+    loadImagesByPage()
+  }
+  moreLoading.value = false
+}
+
 let maxBookmarkId = '0'
 async function fetchUserBookmarks() {
   try {
     moreLoading.value = true
-    const resp = await fetch(`https://hibiapi1.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}&_t=${Date.now().toString().slice(0, 8)}`)
+    const resp = await fetch(`https://hibiapi5.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}&_t=${Date.now().toString().slice(0, 8)}`)
     const json = await resp.json()
     maxBookmarkId = new URL(json.next_url).searchParams.get('max_bookmark_id') || '0'
     store.images = store.images.concat(transformResData(json.illusts))
