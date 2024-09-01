@@ -6,8 +6,10 @@ const dataDir = join(import.meta.dirname, '../data')
 const CONFIG_FILE = join(import.meta.dirname, '../src/config/config.json')
 
 async function main() {
-  const illustDir = join(dataDir, 'artworks')
+  const config = fs.readJSONSync(CONFIG_FILE)
+  const illustDir = join(config.download.path, 'data/artworks')
   fs.ensureDirSync(illustDir)
+
   const favDir = join(dataDir, 'tmp')
   const favList = await fs.readdir(favDir)
   let results = []
@@ -19,10 +21,13 @@ async function main() {
       fs.writeJSONSync(join(illustDir, `${illust.id}.json`), illust)
     }
   }
-  updateImagesJson(results)
+
+  const imgJsonPath = join(config.download.path, 'data/images.json')
+  fs.ensureFileSync(imgJsonPath)
+  updateImagesJson(results, imgJsonPath)
 }
 
-function updateImagesJson(illusts) {
+function updateImagesJson(illusts, imgJsonPath) {
   try {
     const results = []
     for (const json of illusts) {
@@ -87,9 +92,6 @@ function updateImagesJson(illusts) {
     console.log('Results.length: ', results.length)
     console.log('Updating images json...')
 
-    const config = fs.readJSONSync(CONFIG_FILE)
-    const imgJsonPath = join(config.download.path, 'data/images.json')
-    fs.ensureFileSync(imgJsonPath)
     const oldJson = fs.readJSONSync(imgJsonPath, { throws: false }) || []
     const imagesJson = uniqBy(results.concat(oldJson), o => `${o.id}${o.part}`)
     fs.writeJSONSync(imgJsonPath, imagesJson)

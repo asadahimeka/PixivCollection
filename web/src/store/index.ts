@@ -4,16 +4,31 @@ import { defineStore } from 'pinia'
 
 import { getImageLargeSrc } from '@/utils'
 
+const w = window as any
 export const useStore = defineStore('main', {
   state: () => ({
     showSidebar: false,
     showNav: true,
 
-    images: <Image[]>[],
+    imagesFiltered: [] as Image[],
     imagesLoaded: new Set(),
+    curPageCursor: 0,
+    loadEnd: false,
+
+    fullCounts: {
+      total: 0,
+      illustCount: 0,
+      authorCount: 0,
+      tagCount: 0,
+    },
+    filteredCounts: {
+      total: 0,
+      illustCount: 0,
+      authorCount: 0,
+      tagCount: 0,
+    },
 
     fullscreen: useFullscreen(document.documentElement),
-
     preferColorScheme: 'auto' as 'auto' | 'light' | 'dark',
     browserColorScheme: usePreferredColorScheme(),
 
@@ -40,7 +55,7 @@ export const useStore = defineStore('main', {
       imageSortBy: 'id_desc' as 'id_desc' | 'id_asc' | 'bookmark_desc',
       useLocalImage: true,
       useFancybox: false,
-      sliceLocalImages: false,
+      sliceLocalImages: true,
       loadImagesJsonByLocalHttp: true,
       loadImageByLocalHttp: false,
     },
@@ -174,16 +189,64 @@ export const useStore = defineStore('main', {
         return true
       }
     },
-    imagesFiltered(): Image[] {
-      const res: Image[] = []
-      for (let i = 0, len = this.images.length; i < len; i++) {
-        const item = this.images[i]
-        if (this.imageFilter(item)) { res.push(item) }
-      }
-      return res
-    },
   },
   actions: {
+    updateFullCounts() {
+      this.fullCounts.total = w.__fullImages__.length
+      this.fullCounts.illustCount = new Set(w.__fullImages__.map((i: Image) => i.id)).size
+      this.fullCounts.authorCount = new Set(w.__fullImages__.map((i: Image) => i.author.id)).size
+      this.fullCounts.tagCount = new Set(w.__fullImages__.flatMap((i: Image) => i.tags.map(t => t.name))).size
+    },
+    updateFilteredCounts() {
+      this.filteredCounts.total = w.__filteredImages__.length
+      this.filteredCounts.illustCount = new Set(w.__filteredImages__.map((i: Image) => i.id)).size
+      this.filteredCounts.authorCount = new Set(w.__filteredImages__.map((i: Image) => i.author.id)).size
+      this.filteredCounts.tagCount = new Set(w.__filteredImages__.flatMap((i: Image) => i.tags.map(t => t.name))).size
+    },
+    loadFilteredImages() {
+      const res: Image[] = []
+      const fullList = w.__fullImages__
+      const len = fullList.length
+      for (let i = 0; i < len; i++) {
+        const item = fullList[i]
+        if (this.imageFilter(item)) { res.push(item) }
+      }
+      this.imagesFiltered = res
+    },
+    loadImagesByPage(isFirstLoad = false) {
+      if (isFirstLoad) {
+        w.__filteredImages__ = w.__fullImages__
+        this.updateFilteredCounts()
+      } else if (this.curPageCursor == 0) {
+        const res: Image[] = []
+        const fullList = w.__fullImages__
+        const len = fullList.length
+        for (let i = 0; i < len; i++) {
+          const item = fullList[i]
+          if (this.imageFilter(item)) { res.push(item) }
+        }
+        w.__filteredImages__ = res
+        this.updateFilteredCounts()
+      }
+      if (w.__filteredImages__.length == this.imagesFiltered.length) {
+        this.loadEnd = true
+        return
+      }
+      this.loadEnd = false
+      let res: any[] = w.__filteredImages__.slice(this.curPageCursor, this.curPageCursor + 30)
+      const lastEl = res[res.length - 1]
+      if (lastEl.len > 1) {
+        const newLen = this.imagesFiltered.length + res.length
+        res = res.concat(
+          w.__filteredImages__.slice(
+            newLen,
+            newLen + lastEl.len - lastEl.part - 1,
+          ),
+        )
+      }
+      this.imagesFiltered = this.imagesFiltered.concat(res)
+      this.curPageCursor += res.length
+    },
     openImageViewer(image: Image, prev: () => void, next: () => void, index: number): void {
       this.imageViewer.show = true
       this.imageViewer.info = image
@@ -220,8 +283,8 @@ export const useStore = defineStore('main', {
       if (this.filterConfig.search.enable) {
         this.updateSeatchValue('')
       } else {
-        for (let i = 0, len = this.images.length; i < len; i++) {
-          const image = this.images[i]
+        for (let i = 0, len = w.__fullImages__.length; i < len; i++) {
+          const image = w.__fullImages__[i] as Image
           if (image.searchStr === undefined) {
             image.searchStr = (
               image.id
@@ -262,7 +325,7 @@ export const useStore = defineStore('main', {
             list.push(this.imagesFiltered[idx + i])
           }
         }
-        (window as any).Fancybox.show(list.map(e => ({ src: getImageLargeSrc(this, e) })), {
+        w.Fancybox.show(list.map(e => ({ src: getImageLargeSrc(this, e) })), {
           startIndex: 0,
           Thumbs: { showOnStart: false },
           Carousel: { infinite: false },
@@ -286,12 +349,19 @@ export const useStore = defineStore('main', {
       }
     },
     sortImages(): void {
-      this.images.sort((a, b) => {
+      w.__fullImages__.sort((a: Image, b: Image) => {
         if (a.id === b.id) { return a.part - b.part }
         if (this.masonryConfig.imageSortBy === 'bookmark_desc') { return b.bookmark - a.bookmark }
         if (this.masonryConfig.imageSortBy === 'id_desc') { return b.id - a.id }
         return (a.id - b.id)
       })
+      if (this.masonryConfig.sliceLocalImages) {
+        this.curPageCursor = 0
+        this.loadEnd = false
+        this.loadImagesByPage()
+      } else {
+        this.loadFilteredImages()
+      }
     },
   },
 })

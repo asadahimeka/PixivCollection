@@ -46,6 +46,11 @@ fn get_executable_dir() -> Result<std::path::PathBuf, String> {
     }
 }
 
+#[tauri::command]
+fn restart_app(app_handle: tauri::AppHandle) {
+    app_handle.restart();
+}
+
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
@@ -56,7 +61,11 @@ async fn main() {
                 .unwrap();
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![start_local_server, get_executable_dir])
+        .invoke_handler(tauri::generate_handler![
+            start_local_server,
+            get_executable_dir,
+            restart_app
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

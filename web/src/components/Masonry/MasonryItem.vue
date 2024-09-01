@@ -35,7 +35,8 @@
       </template>
       <img
         v-else
-        class="w-full cursor-pointer"
+        class="max-h-full w-full cursor-pointer"
+        style="object-fit: cover"
         :src="imageLoad ? imgSrc : ''"
         loading="lazy"
         @load="handleImageLoaded"
@@ -49,7 +50,7 @@
       >
         <p
           class="cursor-pointer truncate font-bold transition-colors hover:text-blue-500"
-          :title="imageData.created_at"
+          :title="imageData.title"
           @click="openPixivIllust(imageData.id)"
         >
           {{ imageData.title }}

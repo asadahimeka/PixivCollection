@@ -45,6 +45,7 @@
           >
             <p
               class="cursor-pointer truncate font-bold transition-colors hover:text-blue-500"
+              :title="imageViewer.info.title"
               @click="openPixivIllust(imageViewer.info.id)"
             >
               {{ imageViewer.info.title }}

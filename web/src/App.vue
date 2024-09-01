@@ -4,18 +4,16 @@
       <Sidebar />
       <SidebarMask />
       <Navbar @updatebookmark="updateBookmark()" />
-      <template v-if="!loading && !imagesFiltered.length">
-        <Tip>
-          <div class="text-center">
-            暂无数据<br>
-          </div>
-        </Tip>
-      </template>
-      <template v-else-if="!store.images.length">
+      <template v-if="!imagesFiltered.length">
         <Tip v-if="loading">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
           <div class="text-center">
             数据加载中<br>
+          </div>
+        </Tip>
+        <Tip v-if="!loading && !notSettled">
+          <div class="text-center">
+            暂无数据<br>
           </div>
         </Tip>
         <div v-if="!loading && notSettled" class="my-2 text-center">
@@ -71,7 +69,7 @@
       <template v-else>
         <MasonryView />
         <ImageViewer />
-        <CButton v-if="!loadEnd" class="mx-auto my-5 block" @click="fetchMore">{{ moreLoading ? '加载中' : '加载更多' }}</CButton>
+        <CButton v-if="!store.loadEnd" class="mx-auto my-5 block" @click="fetchMore">{{ moreLoading ? '加载中' : '加载更多' }}</CButton>
       </template>
       <Transition name="fade">
         <div v-if="showModalMsg" class="bookmark-update-msg">
@@ -91,6 +89,7 @@ import { join } from '@tauri-apps/api/path'
 import { Command } from '@tauri-apps/api/shell'
 
 import { SettingType } from '@orilight/vue-settings'
+import { useDebounceFn } from '@vueuse/core'
 import { useStore } from '@/store'
 
 const store = useStore()
@@ -105,12 +104,11 @@ const {
 
 const loading = ref(true)
 const moreLoading = ref(false)
-const curPageCursor = ref(0)
-const loadEnd = ref(false)
 
-const isTauri = !!(window as any).__TAURI__
-const { __CONFIG__ } = window as any
-const notSettled = !(__CONFIG__.imgDir && __CONFIG__.token) || !__CONFIG__.userId
+const w = (window as any)
+const isTauri = !!w.__TAURI__
+const { __CONFIG__ } = w
+const notSettled = !(__CONFIG__.imgDir && __CONFIG__.pxderToken) && !__CONFIG__.userId
 const userId = ref(__CONFIG__.userId)
 const pxderToken = ref(__CONFIG__.pxderToken)
 const pxderProxy = ref(__CONFIG__.pxderProxy)
@@ -181,7 +179,7 @@ async function updateBookmark() {
     // 在这里处理错误输出
     const str = line.split('__EOS__').filter(Boolean).map(e => {
       const m = e.match(/(.*)\$\${(%c)?\<(.*)\>%(.*)}\$\$(.*)/)
-      return m ? `<span>${m[1] || ''}<span style="${m[3] || ''}">${m[4] || ''}</span>${m[5] || ''}</span>` : e
+      return m ? `<span>${m[1] || ''}<span style="${m[3]?.replaceAll('red', '#ff6565') || ''}">${m[4] || ''}</span>${m[5] || ''}</span>` : e
     }).join('')
     modalMsg.value += str ? `<div style="color:#ff6565">${str}</div>` : (line ? `<div style="color:#ff6565">${line}</span>` : '<br>')
   })
@@ -223,7 +221,7 @@ async function saveReload() {
     await writeTextFile(await join(pxderPath, 'data/_last_illusts.json'), '[]').catch(() => {})
   }
   localStorage.setItem('__PXCT_USER_ID', userId.value)
-  await init()
+  await invoke('restart_app')
 }
 
 onMounted(async () => {
@@ -242,12 +240,28 @@ onUnmounted(() => {
   store.settings.unregisterAll()
 })
 
+watch(
+  () => store.filterConfig,
+  useDebounceFn(() => {
+    if (store.masonryConfig.sliceLocalImages) {
+      store.curPageCursor = 0
+      store.loadEnd = false
+      store.imagesFiltered = []
+      store.loadImagesByPage()
+    } else {
+      store.loadFilteredImages()
+    }
+    document.documentElement.scrollTop = 0
+  }, 250),
+  { deep: true },
+)
+
 async function init() {
   try {
     loading.value = true
-    curPageCursor.value = 0
-    loadEnd.value = false
-    store.images = []
+    store.curPageCursor = 0
+    store.loadEnd = false
+    store.imagesFiltered = []
     if (__CONFIG__.userId) {
       await fetchUserBookmarks()
     } else if (isTauri && __CONFIG__.jsonPath && __CONFIG__.imgDir) {
@@ -265,11 +279,14 @@ async function init() {
         contents = JSON.parse(await readTextFile(__CONFIG__.jsonPath))
       }
 
+      w.__fullImages__ = contents
+      store.updateFullCounts()
+
       if (store.masonryConfig.sliceLocalImages) {
-        (window as any).__fullImages__ = contents
-        loadImagesByPage()
+        store.curPageCursor = 0
+        store.loadImagesByPage(true)
       } else {
-        store.images = contents
+        store.imagesFiltered = contents
       }
     }
   } catch (e) {
@@ -281,37 +298,15 @@ async function init() {
   }
 }
 
-function loadImagesByPage() {
-  const w = window as any
-  if (w.__fullImages__.length == store.images.length) {
-    loadEnd.value = true
-    return
-  }
-  loadEnd.value = false
-  let res: any[] = w.__fullImages__.slice(curPageCursor.value, curPageCursor.value + 30)
-  const lastEl = res[res.length - 1]
-  if (lastEl.len > 1) {
-    const newLen = store.images.length + res.length
-    res = res.concat(
-      w.__fullImages__.slice(
-        newLen,
-        newLen + lastEl.len - lastEl.part - 1,
-      ),
-    )
-  }
-  store.images = store.images.concat(res)
-  curPageCursor.value += res.length
-}
-
 async function fetchMore() {
   if (moreLoading.value) return
   moreLoading.value = true
   if (__CONFIG__.userId) {
     await fetchUserBookmarks()
   } else if (isTauri && __CONFIG__.jsonPath && store.masonryConfig.sliceLocalImages) {
-    loadImagesByPage()
+    store.loadImagesByPage()
   } else {
-    loadEnd.value = true
+    store.loadEnd = true
   }
   moreLoading.value = false
 }
@@ -320,16 +315,18 @@ let maxBookmarkId = '0'
 async function fetchUserBookmarks() {
   try {
     moreLoading.value = true
-    loadEnd.value = false
+    store.loadEnd = false
     const resp = await fetch(`https://hibiapi.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}&_t=${Date.now().toString().slice(0, 8)}`)
     const json = await resp.json()
     maxBookmarkId = new URL(json.next_url).searchParams.get('max_bookmark_id') || '0'
     const res = transformResData(json.illusts)
     if (!res.length) {
-      loadEnd.value = true
+      store.loadEnd = true
       return
     }
-    store.images = store.images.concat(res)
+    w.__fullImages__ = w.__fullImages__.concat(res)
+    store.updateFullCounts()
+    store.loadFilteredImages()
   } catch (error) {
     console.log('fetchUserBookmarks error: ', error)
     showModalMsg.value = true

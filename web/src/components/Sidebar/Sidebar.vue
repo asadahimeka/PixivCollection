@@ -101,6 +101,34 @@
       </SidebarBlock>
       <SidebarHead>图片筛选</SidebarHead>
       <SidebarBlock>
+        <table class="w-full text-xs" style="border: 0;">
+          <tr>
+            <td><b>图片</b> - </td>
+            <td>总计: {{ store.fullCounts.total }}</td>
+            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.total }}</td>
+            <td>展示: {{ store.imagesFiltered.length }}</td>
+          </tr>
+          <tr>
+            <td><b>作品</b> - </td>
+            <td>总计: {{ store.fullCounts.illustCount }}</td>
+            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.illustCount }}</td>
+            <td>展示: {{ illustCount }}</td>
+          </tr>
+          <tr>
+            <td><b>作者</b> - </td>
+            <td>总计: {{ store.fullCounts.authorCount }}</td>
+            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.authorCount }}</td>
+            <td>展示: {{ authorCount }}</td>
+          </tr>
+          <tr>
+            <td><b>标签</b> - </td>
+            <td>总计: {{ store.fullCounts.tagCount }}</td>
+            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.tagCount }}</td>
+            <td>展示: {{ tagCount }}</td>
+          </tr>
+        </table>
+      </SidebarBlock>
+      <SidebarBlock>
         已选项
         <br>
         <button
@@ -366,12 +394,6 @@
             导出当前筛选结果
           </CButton>
         </div>
-        <div class="text-xs">
-          图片: {{ images.length }}
-          作品: {{ illustCount }}
-          作者: {{ authorCount }}
-          标签: {{ tagCount }}
-        </div>
       </SidebarBlock>
     </div>
   </Transition>
@@ -382,8 +404,9 @@ import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, M
 import { useStore } from '@/store'
 import { exportFile } from '@/utils'
 
-const isTauri = !!(window as any).__TAURI__
-const { __CONFIG__ } = window as any
+const w = (window as any)
+const isTauri = !!w.__TAURI__
+const { __CONFIG__ } = w
 const userId = ref(__CONFIG__.userId)
 const saveReload = () => {
   localStorage.setItem('__PXCT_USER_ID', userId.value)
@@ -394,7 +417,6 @@ const store = useStore()
 const {
   preferColorScheme,
   showSidebar,
-  images,
   filterConfig,
   masonryConfig,
   isFullscreen,
@@ -408,9 +430,9 @@ const showFullTags = ref(false)
 const searchAuthor = ref('')
 const searchTag = ref('')
 
-const illustCount = computed(() => new Set(images.value.map(i => i.id)).size)
-const authorCount = computed(() => new Set(images.value.map(i => i.author.id)).size)
-const tagCount = computed(() => new Set(images.value.flatMap(i => i.tags.map(t => t.name))).size)
+const illustCount = computed(() => new Set(store.imagesFiltered.map(i => i.id)).size)
+const authorCount = computed(() => new Set(store.imagesFiltered.map(i => i.author.id)).size)
+const tagCount = computed(() => new Set(store.imagesFiltered.flatMap(i => i.tags.map(t => t.name))).size)
 
 const filteredAuthors = computed(() => {
   if (searchAuthor.value !== '') {
@@ -433,11 +455,22 @@ const filteredTags = computed(() => {
   }
 })
 
-watchEffect(() => {
+watch(
+  () => store.fullCounts.tagCount,
+  () => getFilters(),
+  { immediate: true },
+)
+
+function getFilters() {
   const _years: number[] = []
   const _tags: { [index: string]: TagData } = {}
   const _authors: { [index: string]: AuthorData } = {}
-  images.value.forEach(image => {
+
+  const fullList = w.__fullImages__
+  const len = fullList.length
+  for (let i = 0; i < len; i++) {
+    const image = fullList[i] as Image
+
     // 统计年份
     const year = Number(image.created_at.split('-')[0])
     if (!_years.includes(year) && year > 2000) { _years.push(year) }
@@ -473,7 +506,8 @@ watchEffect(() => {
       if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { return }
       if (Object.hasOwn(_tags, tag.name)) { _tags[tag.name].count++ } else { _tags[tag.name] = { ...tag, count: 1 } }
     })
-  })
+  }
+
   years.value = _years.sort((a, b) => b - a)
   tags.value = Object.keys(_tags)
     .map(tagName => _tags[tagName])
@@ -483,7 +517,7 @@ watchEffect(() => {
   authors.value = Object.keys(_authors)
     .map(authorId => _authors[authorId])
     .sort((a, b) => b.count - a.count)
-})
+}
 
 function handleClickYear(year: number) {
   if (filterConfig.value.year.enable && filterConfig.value.year.value === year) {
@@ -554,7 +588,14 @@ function loadDataFromFile() {
       const reader = new FileReader()
       reader.onload = e => {
         const data = JSON.parse(e.target?.result as string)
-        store.images = data
+        w.__fullImages__ = data
+        store.updateFullCounts()
+        if (store.masonryConfig.sliceLocalImages) {
+          store.curPageCursor = 0
+          store.loadImagesByPage()
+        } else {
+          store.imagesFiltered = data
+        }
       }
       reader.readAsText(file)
     }

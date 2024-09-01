@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "tauri dev",
     "build:win": "tauri build --target x86_64-pc-windows-msvc",
-    "build:mac": "tauri build --target universal-apple-darwin"
+    "build:mac": "tauri build --target universal-apple-darwin",
+    "postbuild:win": "scripts/postbuild.bat"
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.6"
