@@ -1,4 +1,4 @@
-<h1 align="center"><span style="color: #0398fa;">Pixiv</span>Collection<span style="color:#39c5bb">.exe</span></h1>
+<h1 align="center"> ${{\color{#0398fa}Pixiv}Collection{\color{#39c5bb}.exe}}$ </h1>
 <p align="center">⭐ Pixiv 本地收藏夹管理: 爬取、下载、转换 ⭐</p>
 
 ![preview1](./docs/screenshot1.png)
