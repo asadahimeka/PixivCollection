@@ -8,7 +8,7 @@
     "build": "vue-tsc && vite build",
     "transform": "node ./scripts/transform.cjs",
     "preview": "vite preview",
-    "lint": "eslint src"
+    "lint": "eslint src --fix"
   },
   "dependencies": {
     "@orilight/vue-settings": "^1.2.2",

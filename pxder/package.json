@@ -1,0 +1,28 @@
+{
+  "name": "pxder",
+  "version": "2.12.7",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "adm-zip": "^0.5.15",
+    "appdata-path": "^1.0.0",
+    "axios": "^0.28.1",
+    "commander": "^5.1.0",
+    "compare-versions": "^4.1.2",
+    "fs-extra": "^10.0.0",
+    "https-proxy-agent": "^5.0.0",
+    "js-base64": "^3.7.2",
+    "latest-version": "^5.1.0",
+    "lodash.flatmap": "^4.5.0",
+    "lodash.uniqby": "^4.7.0",
+    "node-abort-controller": "^3.0.1",
+    "open": "^8.4.0",
+    "pixiv-api-client": "^0.25.0",
+    "prompts": "^2.4.2",
+    "proxy-agent": "^6.2.1",
+    "readline-sync": "^1.4.10",
+    "register-protocol-win32": "^1.1.0",
+    "sharp": "^0.33.5",
+    "socks-proxy-agent": "^5.0.0"
+  }
+}

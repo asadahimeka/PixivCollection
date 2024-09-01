@@ -35,7 +35,7 @@ export function getImageMediumSrc(store: any, img: Image) {
   const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
   // const fileName = `${fileNameWoExt}.${img.ext}`
 
-  if (store.masonryConfig.useLocalImage  && store.masonryConfig.loadImageByLocalHttp) {
+  if (store.masonryConfig.useLocalImage && store.masonryConfig.loadImageByLocalHttp) {
     if (img.images?.o.includes('_ugoira')) {
       return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
     }
@@ -46,10 +46,12 @@ export function getImageMediumSrc(store: any, img: Image) {
     return img.images?.m.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
   }
 
+  const dir = `${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}`
+
   if (img.images?.o.includes('_ugoira')) {
-    return convertFileSrc(`E:/Pictures/Pixiv/bookmark_ugoira/${fileNameWoExt}.mp4`)
+    return convertFileSrc(`${dir}bookmark_ugoira/${fileNameWoExt}.mp4`)
   }
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileNameWoExt}.webp`)
+  return convertFileSrc(`${dir}bookmark_webp/${fileNameWoExt}.webp`)
 }
 
 export function getImageLargeSrc(store: any, img: Image) {
@@ -58,7 +60,7 @@ export function getImageLargeSrc(store: any, img: Image) {
   const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
   // const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
 
-  if (store.masonryConfig.useLocalImage  && store.masonryConfig.loadImageByLocalHttp) {
+  if (store.masonryConfig.useLocalImage && store.masonryConfig.loadImageByLocalHttp) {
     if (img.images?.o.includes('_ugoira')) {
       return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
     }
@@ -74,10 +76,12 @@ export function getImageLargeSrc(store: any, img: Image) {
     // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
   }
 
+  const dir = `${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}`
+
   if (img.images?.o.includes('_ugoira')) {
-    return convertFileSrc(`E:/Pictures/Pixiv/bookmark_ugoira/${fileNameWoExt}.mp4`)
+    return convertFileSrc(`${dir}bookmark_ugoira/${fileNameWoExt}.mp4`)
   }
-  return convertFileSrc(`${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}${fileNameWoExt}.webp`)
+  return convertFileSrc(`${dir}bookmark_webp/${fileNameWoExt}.webp`)
 }
 
 export function getImageOriginalSrc(img: Image) {

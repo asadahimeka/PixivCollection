@@ -117,10 +117,14 @@ out
 .yarn/install-state.gz
 .pnp.*
 
-.vscode/
 build/
 
 output.xlsx
 ~$*.xlsx
 
 WixTools
+
+pxder/ffmpeg.exe
+pxder/node.exe
+pxder/data/*
+!pxder/data/.gitkeep

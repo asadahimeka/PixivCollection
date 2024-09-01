@@ -1,15 +1,32 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-const { join } = require('node:path')
-const { readdir, readFile, writeFile } = require('node:fs/promises')
+import { join } from 'node:path'
+import fs from 'fs-extra'
+import uniqBy from 'lodash.uniqby'
+
+const dataDir = join(import.meta.dirname, '../data')
+const CONFIG_FILE = join(import.meta.dirname, '../src/config/config.json')
 
 async function main() {
+  const illustDir = join(dataDir, 'artworks')
+  fs.ensureDirSync(illustDir)
+  const favDir = join(dataDir, 'tmp')
+  const favList = await fs.readdir(favDir)
+  let results = []
+  for (const item of favList) {
+    const json = fs.readJSONSync(join(favDir, item))
+    results = json.illusts.concat(results)
+    for (const illust of json.illusts) {
+      // console.log('Illust.id: ', illust.id)
+      fs.writeJSONSync(join(illustDir, `${illust.id}.json`), illust)
+    }
+  }
+  updateImagesJson(results)
+}
+
+function updateImagesJson(illusts) {
   try {
-    const dirPath = 'E:\\Pictures\\Pixiv\\data\\artworks'
-    const paths = await readdir(dirPath)
     const results = []
-    for (const item of paths) {
-      console.log('Reading:', item)
-      const json = JSON.parse(await readFile(join(dirPath, item), 'utf-8'))
+    for (const json of illusts) {
+      // console.log('Reading:', json.id)
       if (json.meta_single_page.original_image_url) {
         results.push({
           id: json.id,
@@ -66,10 +83,18 @@ async function main() {
         })))
       }
     }
-    console.log('results.length: ', results.length)
-    // await writeFile('./images.json', JSON.stringify(results.sort((a, b) => b.id - a.id)))
-    await writeFile(join(dirPath, '../images.json'), JSON.stringify(results))
-    // await writeFile('./images.f.json', JSON.stringify(results, null, 2))
+
+    console.log('Results.length: ', results.length)
+    console.log('Updating images json...')
+
+    const config = fs.readJSONSync(CONFIG_FILE)
+    const imgJsonPath = join(config.download.path, 'data/images.json')
+    fs.ensureFileSync(imgJsonPath)
+    const oldJson = fs.readJSONSync(imgJsonPath, { throws: false }) || []
+    const imagesJson = uniqBy(results.concat(oldJson), o => `${o.id}${o.part}`)
+    fs.writeJSONSync(imgJsonPath, imagesJson)
+
+    console.log('Update images json success.')
   } catch (err) {
     console.error(err.message)
   }

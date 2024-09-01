@@ -24,6 +24,7 @@
     "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
     "curly": ["warn", "multi-line"],
     "eqeqeq": "off",
+    "no-alert": "off",
     "no-console": "off",
     "no-unexpected-multiline": "error",
     "no-unused-expressions": "off",

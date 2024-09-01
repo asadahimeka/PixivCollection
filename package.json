@@ -1,5 +1,6 @@
 {
   "name": "pixiv-collection",
+  "version": "0.0.7",
   "scripts": {
     "dev": "tauri dev",
     "build:win": "tauri build --target x86_64-pc-windows-msvc",

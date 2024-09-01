@@ -139,10 +139,9 @@
 </template>
 
 <script setup lang="ts">
-
-import { IMAGE_FORMAT_THUMBNAIL, IMAGE_PATH_THUMBNAIL, MASONRY_LOAD_DELAY } from '@/config'
+import { MASONRY_LOAD_DELAY } from '@/config'
 import { useStore } from '@/store'
-import { openPixivIllust, openPixivUser, getImageMediumSrc } from '@/utils'
+import { getImageMediumSrc, openPixivIllust, openPixivUser } from '@/utils'
 
 const props = defineProps<{
   imageData: Image

@@ -56,9 +56,9 @@
               {{ imageViewer.info.author.name }}
             </p>
             <p class="mt-2">
-              <span v-if="imageViewer.info.x_restrict === 1" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-red-500/60">R18</span>
-              <span v-if="imageViewer.info.x_restrict === 2" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-red-500/60">R18G</span>
-              <span v-if="imageViewer.info.isAI" class="float-left m-0.5 rounded-sm px-1 text-xs !bg-blue-500/60">AI 生成</span>
+              <span v-if="imageViewer.info.x_restrict === 1" class="float-left m-0.5 rounded-sm !bg-red-500/60 px-1 text-xs">R18</span>
+              <span v-if="imageViewer.info.x_restrict === 2" class="float-left m-0.5 rounded-sm !bg-red-500/60 px-1 text-xs">R18G</span>
+              <span v-if="imageViewer.info.isAI" class="float-left m-0.5 rounded-sm !bg-blue-500/60 px-1 text-xs">AI 生成</span>
               <span
                 v-for="tag, idx in imageViewer.info.tags"
                 v-show="!tag.name.includes('users入り') || filterConfig.tag.includeBookmark" :key="idx"
@@ -104,21 +104,21 @@
         <div v-if="imageSrc.endsWith('.mp4')" class="_backdrop_cont" style="display: flex;justify-content: center;align-items: center;width: 100vw;height: 100vh;">
           <video
             class="touch-none select-none"
-            :class="{'': !imageGragging}"
+            :class="{ '': !imageGragging }"
             :src="imageSrc"
             loading="lazy"
             loop
             muted
             autoplay
             style="max-width: 100vw;max-height: 100vh;"
-            @loadedmetadata="loadingImage=false"
+            @loadedmetadata="loadingImage = false"
           ></video>
         </div>
         <img
           v-else
           :src="imageSrc"
           class="absolute max-w-none cursor-grab touch-none select-none active:cursor-grabbing"
-          :class="{'': !imageGragging}"
+          :class="{ '': !imageGragging }"
           :style="{
             transform: `scale(${imageRatio})`,
             left: `${imagePos.x}px`,
@@ -137,7 +137,7 @@
 import { useMouse } from '@vueuse/core'
 import { useStore } from '@/store'
 // import { IMAGE_FORMAT_PREVIEW, IMAGE_PATH_ORIGINAL, IMAGE_PATH_PREVIEW } from '@/config'
-import { openPixivIllust, openPixivUser, getImageLargeSrc, getImageOriginalSrc as getImageDlSrc } from '@/utils'
+import { getImageOriginalSrc as getImageDlSrc, getImageLargeSrc, openPixivIllust, openPixivUser } from '@/utils'
 
 const store = useStore()
 const { imageViewer, filterConfig, masonryConfig } = toRefs(store)
@@ -339,12 +339,14 @@ function handleZoom(newRatio: number, centerPostiion: { x: number; y: number }, 
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-  if (!imageViewer.value.show)
+  if (!imageViewer.value.show) {
     return
-  if (e.key === 'ArrowLeft')
+  }
+  if (e.key === 'ArrowLeft') {
     store.imageViewer.prev()
-  else if (e.key === 'ArrowRight')
+  } else if (e.key === 'ArrowRight') {
     store.imageViewer.next()
+  }
 }
 
 function handleBackClick(e: MouseEvent) {

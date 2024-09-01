@@ -175,7 +175,6 @@ export const useStore = defineStore('main', {
       }
     },
     imagesFiltered(): Image[] {
-      // return this.images.filter(this.imageFilter)
       const res: Image[] = []
       for (let i = 0, len = this.images.length; i < len; i++) {
         const item = this.images[i]
@@ -221,22 +220,6 @@ export const useStore = defineStore('main', {
       if (this.filterConfig.search.enable) {
         this.updateSeatchValue('')
       } else {
-        // this.images.forEach((image) => {
-        //   if (image.searchStr === undefined) {
-        //     image.searchStr = (
-        //       image.id
-        //       + image.title
-        //       + image.author.id
-        //       + image.author.name
-        //       + image.tags
-        //         .map(
-        //           tag => tag.translated_name
-        //             ? tag.name + tag.translated_name
-        //             : tag.name,
-        //         ).join()
-        //     ).toLowerCase()
-        //   }
-        // })
         for (let i = 0, len = this.images.length; i < len; i++) {
           const image = this.images[i]
           if (image.searchStr === undefined) {
@@ -273,7 +256,7 @@ export const useStore = defineStore('main', {
       if (idx < 0 || idx >= this.imagesFiltered.length) { return }
       const actItem = this.imagesFiltered[idx]
       if (this.masonryConfig.useFancybox) {
-        const list: Image[]  = [actItem]
+        const list: Image[] = [actItem]
         if (actItem.len > 1) {
           for (let i = 1; i < actItem.len; i++) {
             list.push(this.imagesFiltered[idx + i])
@@ -285,7 +268,7 @@ export const useStore = defineStore('main', {
           Carousel: { infinite: false },
           Toolbar: {
             display: {
-              right: ["iterateZoom", "rotateCCW", "rotateCW", "flipX", "flipY", "fullscreen", "close"],
+              right: ['iterateZoom', 'rotateCCW', 'rotateCW', 'flipX', 'flipY', 'fullscreen', 'close'],
             },
           },
         })
@@ -304,12 +287,9 @@ export const useStore = defineStore('main', {
     },
     sortImages(): void {
       this.images.sort((a, b) => {
-        if (a.id === b.id)
-          return a.part - b.part
-        if (this.masonryConfig.imageSortBy === 'bookmark_desc')
-          return b.bookmark - a.bookmark
-        if (this.masonryConfig.imageSortBy === 'id_desc')
-          return b.id - a.id
+        if (a.id === b.id) { return a.part - b.part }
+        if (this.masonryConfig.imageSortBy === 'bookmark_desc') { return b.bookmark - a.bookmark }
+        if (this.masonryConfig.imageSortBy === 'id_desc') { return b.id - a.id }
         return (a.id - b.id)
       })
     },

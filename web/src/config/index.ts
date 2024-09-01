@@ -1,4 +1,4 @@
-export const LINK_GITHUB = 'https://github.com/orilights/PixivCollection'
+export const LINK_GITHUB = 'https://github.com/asadahimeka/PixivCollection'
 export const LINK_PIXIV_ARTWORK = 'https://www.pixiv.net/artworks/{id}'
 export const LINK_PIXIV_USER = 'https://www.pixiv.net/users/{id}'
 

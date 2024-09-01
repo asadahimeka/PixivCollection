@@ -350,8 +350,9 @@
           设置用户 ID
           <input
             v-model="userId"
-            class="max-w-[200px] mx-1 rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-            placeholder="如果设置了用户 ID 的话则不读取本地图片数据">
+            class="mx-1 max-w-[200px] rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
+            placeholder="如果设置了用户 ID 的话则不读取本地图片数据"
+          >
           <CButton class="ml-1" @click="saveReload">保存</CButton>
         </div>
         <div class="mt-1">
@@ -381,10 +382,10 @@ import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, M
 import { useStore } from '@/store'
 import { exportFile } from '@/utils'
 
-const isTauri = !!(<any>window).__TAURI__
-const { __CONFIG__ } = (<any>window)
+const isTauri = !!(window as any).__TAURI__
+const { __CONFIG__ } = window as any
 const userId = ref(__CONFIG__.userId)
-function saveReload() {
+const saveReload = () => {
   localStorage.setItem('__PXCT_USER_ID', userId.value)
   location.reload()
 }
@@ -563,6 +564,7 @@ function loadDataFromFile() {
 
 function clearLocalSettings() {
   store.settings.clear()
+  localStorage.clear()
   location.reload()
 }
 
