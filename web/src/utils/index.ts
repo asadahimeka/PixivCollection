@@ -28,6 +28,7 @@ export function exportFile(data: string, filename = 'export-{ts}.json') {
   URL.revokeObjectURL(url)
 }
 
+const PXIMG_PROXY = 'hibiapi.cocomi.eu.org/pximg'
 const { imgDir } = (window as any).__CONFIG__
 export function getImageMediumSrc(store: any, img: Image) {
   // eslint-disable-next-line no-control-regex
@@ -43,7 +44,7 @@ export function getImageMediumSrc(store: any, img: Image) {
   }
 
   if (!store.masonryConfig.useLocalImage || !imgDir) {
-    return img.images?.m.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
+    return img.images?.m.replace('i.pximg.net', PXIMG_PROXY) || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
   }
 
   if (img.images?.o.includes('_ugoira')) {
@@ -70,7 +71,7 @@ export function getImageLargeSrc(store: any, img: Image) {
       return `https://ugoira-mp4-dl.cocomi.eu.org/${img.id}.mp4`
       // return `https://hibiapi.cocomi.eu.org/api/ugoira/${img.id}.mp4`
     }
-    return img.images?.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.cocomi.eu.org/pid/${img.id}?size=large&p=${img.part}`
+    return img.images?.l.replace('i.pximg.net', PXIMG_PROXY).replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.cocomi.eu.org/pid/${img.id}?size=large&p=${img.part}`
     // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
   }
 
@@ -81,5 +82,5 @@ export function getImageLargeSrc(store: any, img: Image) {
 }
 
 export function getImageOriginalSrc(img: Image) {
-  return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?p=${img.part}`
+  return img.images?.o.replace('i.pximg.net', PXIMG_PROXY) || `https://f.cocomi.eu.org/pid/${img.id}?p=${img.part}`
 }
