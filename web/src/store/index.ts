@@ -358,6 +358,7 @@ export const useStore = defineStore('main', {
       if (this.masonryConfig.sliceLocalImages) {
         this.curPageCursor = 0
         this.loadEnd = false
+        this.imagesFiltered = []
         this.loadImagesByPage()
       } else {
         this.loadFilteredImages()
