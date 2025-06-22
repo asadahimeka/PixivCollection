@@ -2,7 +2,6 @@
   "name": "pxder",
   "version": "2.12.7",
   "description": "",
-  "main": "index.js",
   "dependencies": {
     "adm-zip": "^0.5.15",
     "appdata-path": "^1.0.0",

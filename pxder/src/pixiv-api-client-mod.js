@@ -34,14 +34,28 @@ const moment = require('moment')
 const logError = require('./logError')
 
 const BASE_URL = 'https://app-api.pixiv.net'
+const OAUTH_URL = 'https://oauth.secure.pixiv.net'
 const CLIENT_ID = 'MOBrBDS8blbauoSck0ZfDbtuzpyT'
 const CLIENT_SECRET = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj'
 const HASH_SECRET = '28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
+const isUseProxy = true
 function callApi(url, options, retry = 2) {
-  const finalUrl = /^https?:\/\//i.test(url) ? url : BASE_URL + url
+  let finalUrl = /^https?:\/\//i.test(url) ? url : BASE_URL + url
+  const fUrl = new URL(finalUrl)
+  if (isUseProxy) {
+    if (BASE_URL.includes(fUrl.hostname)) {
+      fUrl.pathname = '/pixiv-app-api' + fUrl.pathname
+    }
+    if (OAUTH_URL.includes(fUrl.hostname)) {
+      fUrl.pathname = '/pixiv-oauth' + fUrl.pathname
+    }
+    fUrl.hostname = 'hibiapi.cocomi.eu.org'
+    finalUrl = fUrl.href
+  }
+
   return axios(finalUrl, options)
     .then(res => res.data)
     .catch(async err => {
@@ -76,11 +90,11 @@ function callApi(url, options, retry = 2) {
 class PixivApi {
   constructor() {
     this.headers = {
-      'App-OS': 'android',
-      'Accept-Language': 'en-us',
-      'App-OS-Version': '9.0',
-      'App-Version': '5.0.234',
-      'User-Agent': 'PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)',
+      'App-OS': 'Android',
+      'App-OS-Version': 'Android 14.0',
+      'App-Version': '6.123.0',
+      'Accept-Language': 'zh-CN',
+      'User-Agent': 'PixivAndroidApp/6.123.0 (Android 14.0; Pixel 8)',
     }
   }
 
@@ -116,7 +130,7 @@ class PixivApi {
       }),
       data,
     }
-    return callApi('https://oauth.secure.pixiv.net/auth/token', options)
+    return callApi(`${OAUTH_URL}/auth/token`, options)
       .then(data => {
         this.auth = data.response
         return data.response
@@ -161,7 +175,7 @@ class PixivApi {
       }),
       data,
     }
-    return callApi('https://oauth.secure.pixiv.net/auth/token', options).then(data => {
+    return callApi(`${OAUTH_URL}/auth/token`, options).then(data => {
       this.auth = data.response
       return data.response
     })

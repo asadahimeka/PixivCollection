@@ -67,13 +67,13 @@
           <IconMoon v-if="preferColorScheme === 'dark'" class="mx-auto h-5 w-5" />
           <IconAuto v-if="preferColorScheme === 'auto'" class="mx-auto h-5 w-5" />
         </button>
-        <button
+        <!-- <button
           class="h-[60px] w-[60px] hover:bg-gray-400/20"
           @click="store.toggleFullscreen"
         >
           <IconShrink v-if="isFullscreen" class="mx-auto h-5 w-5" />
           <IconExpand v-else class="mx-auto h-5 w-5" />
-        </button>
+        </button> -->
       </div>
     </div>
   </div>

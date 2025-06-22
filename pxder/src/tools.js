@@ -40,6 +40,12 @@ async function download(dirpath, filename, url, axiosOption) {
 
   const finalUrl = new URL(url)
 
+  if (finalUrl.hostname == 'i.pximg.net') {
+    axiosOption.headers.host = 'i.pximg.net'
+    finalUrl.protocol = 'http:'
+    finalUrl.host = '210.140.139.135'
+  }
+
   // axios timeout 只针对 response，不针对 connection，因此需要二重保险
   let timeout = axiosOption.timeout ? setTimeout(() => controller.abort(), axiosOption.timeout * 2) : null
 

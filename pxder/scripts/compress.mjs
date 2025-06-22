@@ -19,7 +19,7 @@ async function main(type) {
 
   const imgDir = await fs.readdir(imgDirPath)
   for (const item of imgDir) {
-    if (/\.(jpg|jpeg|png)$/i.test(item)) {
+    if (/\.(jpg|jpeg|png|gif)$/i.test(item)) {
       type != 'avif' ? compress(join(imgDirPath, item)) : compressToAvif(join(imgDirPath, item))
     }
 
@@ -43,7 +43,7 @@ function compress(inputFilePath) {
   // 输入文件和输出文件路径
   // const inputFilePath = 'D:/Desktop/(121003304)水着カズサ.png'; // 输入图片路径
   // const outputFilePath = 'D:/Desktop/(121003304)水着カズサ.webp'; // 输出WebP图片路径
-  const outputFilePath = join(imgDirPath, '../bookmark_webp', inputFilePath.split(/[\\/]/).pop().replace(/\.(jpg|jpeg|png)$/, '.webp'))
+  const outputFilePath = join(imgDirPath, '../bookmark_webp', inputFilePath.split(/[\\/]/).pop().replace(/\.(jpg|jpeg|png|gif)$/, '.webp'))
 
   if (fs.existsSync(outputFilePath)) return
 
@@ -63,7 +63,7 @@ function compress(inputFilePath) {
 }
 
 function compressToAvif(inputFilePath) {
-  const outputFilePath = join(imgDirPath, '../bookmark_avif', inputFilePath.split(/[\\/]/).pop().replace(/\.(jpg|jpeg|png)$/, '.avif'))
+  const outputFilePath = join(imgDirPath, '../bookmark_avif', inputFilePath.split(/[\\/]/).pop().replace(/\.(jpg|jpeg|png|gif)$/, '.avif'))
 
   if (fs.existsSync(outputFilePath)) return
 

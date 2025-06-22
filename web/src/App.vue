@@ -156,6 +156,8 @@ async function updateBookmark() {
     const msg = `UpdateBookmark command finished with code ${data.code} and signal ${data.signal}.`
     console.log(msg)
     modalMsg.value += msg
+    const ver = localStorage.getItem('_images_json_version') || '0'
+    localStorage.setItem('_images_json_version', `${Number(ver) + 1}`)
   })
   startCmd.on('error', error => {
     const msg = `UpdateBookmark command error: "${error}".`
@@ -274,7 +276,7 @@ async function init() {
 
       let contents = []
       if (store.masonryConfig.loadImagesJsonByLocalHttp) {
-        contents = await fetch(`http://localhost:32154/data/images.json?base=${__CONFIG__.imgDir}`).then(r => r.json())
+        contents = await fetch(`http://localhost:32154/data/images.json?base=${__CONFIG__.imgDir}&v=${localStorage.getItem('_images_json_version')}`).then(r => r.json())
       } else if (__CONFIG__.jsonPath) {
         contents = JSON.parse(await readTextFile(__CONFIG__.jsonPath))
       }
