@@ -166,7 +166,7 @@ const store = useStore()
 const imageLoad = ref(false)
 const imageLoaded = ref(false)
 
-const imgSrc = computed(() => getImageMediumSrc(store, props.imageData))
+const imgSrc = computed(() => getImageMediumSrc(props.imageData))
 
 const imageIdxStr = `${props.imageData.id * 100 + props.imageData.part}`
 

@@ -18,6 +18,7 @@
     "plugin:tailwindcss/recommended"
   ],
   "rules": {
+    "tailwindcss/no-custom-classname": "off",
     "@typescript-eslint/brace-style": ["error", "1tbs", { "allowSingleLine": true }],
     "antfu/if-newline": "off",
     "arrow-parens": ["error", "as-needed"],

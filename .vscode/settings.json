@@ -2,9 +2,9 @@
   "prettier.enable": false,
   "editor.tabSize": 2,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit",
+    "source.fixAll.eslint": "never",
   },
   "editor.formatOnSave": false,
+  "eslint.useFlatConfig": false,
   "eslint.experimental.useFlatConfig": false,
-  "eslint.workingDirectories": ["web"]
 }

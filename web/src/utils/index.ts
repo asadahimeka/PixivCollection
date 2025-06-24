@@ -1,5 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/tauri'
-
 import { LINK_PIXIV_ARTWORK, LINK_PIXIV_USER } from '@/config'
 
 export function formatBytes(bytes: number) {
@@ -28,62 +26,118 @@ export function exportFile(data: string, filename = 'export-{ts}.json') {
   URL.revokeObjectURL(url)
 }
 
-const { imgDir } = (window as any).__CONFIG__
-export function getImageMediumSrc(store: any, img: Image) {
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
-  // const fileName = `${fileNameWoExt}.${img.ext}`
-
-  if (store.masonryConfig.useLocalImage && store.masonryConfig.loadImageByLocalHttp) {
-    if (img.images?.o.includes('_ugoira')) {
-      return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
-    }
-    return `http://localhost:32154/bookmark_webp/${fileNameWoExt}.webp`
-  }
-
-  if (!store.masonryConfig.useLocalImage || !imgDir) {
-    return img.images?.m.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?size=medium`
-  }
-
-  const dir = `${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}`
-
-  if (img.images?.o.includes('_ugoira')) {
-    return convertFileSrc(`${dir}bookmark_ugoira/${fileNameWoExt}.mp4`)
-  }
-  return convertFileSrc(`${dir}bookmark_webp/${fileNameWoExt}.webp`)
+export function getImageMediumSrc(img: Image) {
+  return img.images?.l
+    .replace('i.pximg.net', 'pximg.cocomi.eu.org')
+    .replace(/\/c\/\d+x\d+(_\d+)?\//g, '/c/1200x1200_90_webp/')
+    || `https://i.loli.best/medium/${img.id}`
 }
 
-export function getImageLargeSrc(store: any, img: Image) {
-  // eslint-disable-next-line no-control-regex
-  const title = img.title.replace(/[\x00-\x1F\x7F]/g, '').replace(/[/\\:*?"<>|.&$]/g, '')
-  const fileNameWoExt = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}`
-  // const fileName = `(${img.id})${title}${img.len == 1 ? '' : `_p${img.part}`}.${img.ext}`
-
-  if (store.masonryConfig.useLocalImage && store.masonryConfig.loadImageByLocalHttp) {
-    if (img.images?.o.includes('_ugoira')) {
-      return `http://localhost:32154/bookmark_ugoira/${fileNameWoExt}.mp4`
-    }
-    return `http://localhost:32154/bookmark_webp/${fileNameWoExt}.webp`
-  }
-
-  if (!store.masonryConfig.useLocalImage || !imgDir) {
-    if (img.images?.o.includes('_ugoira')) {
-      return `https://ugoira-mp4-dl.cocomi.eu.org/${img.id}.mp4`
-      // return `https://hibiapi.cocomi.eu.org/api/ugoira/${img.id}.mp4`
-    }
-    return img.images?.l.replace('i.pximg.net', 'pximg.cocomi.eu.org').replace(/\/c\/\d+x\d+_\d+(_webp)?\//, '/') || `https://f.cocomi.eu.org/pid/${img.id}?size=large&p=${img.part}`
-    // return img.images.o.replace('i.pximg.net', 'pximg.cocomi.eu.org')
-  }
-
-  const dir = `${imgDir}${/[\\/]$/.test(imgDir) ? '' : '/'}`
-
+const isOriginalSrc = !!localStorage.getItem('__PXCT_DTL_ORI_SRC')
+export function getImageLargeSrc(img: Image) {
   if (img.images?.o.includes('_ugoira')) {
-    return convertFileSrc(`${dir}bookmark_ugoira/${fileNameWoExt}.mp4`)
+    return `https://ugoira-mp4-dl.cocomi.eu.org/${img.id}.mp4`
   }
-  return convertFileSrc(`${dir}bookmark_webp/${fileNameWoExt}.webp`)
+  return isOriginalSrc
+    ? (img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://i.loli.best/${img.id}/${img.part}`)
+    : (img.images?.l
+        .replace('i.pximg.net', 'pximg.cocomi.eu.org')
+        .replace(/\/c\/\d+x\d+(_\d+)?\//g, '/c/1200x1200_90_webp/')
+      || `https://i.loli.best/large/${img.id}/${img.part}`)
 }
 
 export function getImageOriginalSrc(img: Image) {
-  return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?p=${img.part}`
+  return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://i.loli.best/${img.id}/${img.part}`
+}
+
+export async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+const aiTags = [
+  'ai',
+  'ai生成',
+  'ai生成作品',
+  'ai作画',
+  'aiイラスト',
+  'aigenerated',
+  'ai-generated',
+  'ai-assisted',
+  'ai辅助',
+  'aiアシスタンス',
+  'ai_generated',
+  'aiartwork',
+  'aigirl',
+  'ai作品',
+  'ai生成イラスト',
+  'ai画像',
+  'ai绘画',
+  'novelai',
+  'novelaidiffusion',
+  'stablediffusion',
+]
+function isAiIllust(artwork: any) {
+  return artwork.illust_ai_type == 2 || !!artwork.tags?.some((e: any) => aiTags.includes(e.name?.toLowerCase()))
+}
+
+export function transformResData(data: any[]) {
+  const results = []
+  for (const json of data) {
+    if (json.meta_single_page.original_image_url) {
+      results.push({
+        id: json.id,
+        part: 0,
+        len: 1,
+        images: {
+          s: json.image_urls.square_medium,
+          m: json.image_urls.medium,
+          l: json.image_urls.large,
+          o: json.meta_single_page.original_image_url,
+        },
+        author: {
+          id: json.user.id,
+          name: json.user.name,
+          account: json.user.account,
+        },
+        bookmark: json.total_bookmarks,
+        created_at: json.create_date,
+        ext: json.meta_single_page.original_image_url.split('.').pop(),
+        sanity_level: json.sanity_level,
+        size: [json.width, json.height],
+        tags: json.tags,
+        title: json.title,
+        view: json.total_view,
+        x_restrict: json.x_restrict,
+        isAI: isAiIllust(json),
+      })
+    } else {
+      results.push(...json.meta_pages.map((e: any, i: number) => ({
+        id: json.id,
+        part: i,
+        len: json.meta_pages.length,
+        images: {
+          s: e.image_urls.square_medium,
+          m: e.image_urls.medium,
+          l: e.image_urls.large,
+          o: e.image_urls.original,
+        },
+        author: {
+          id: json.user.id,
+          name: json.user.name,
+          account: json.user.account,
+        },
+        bookmark: json.total_bookmarks,
+        created_at: json.create_date,
+        ext: e.image_urls.original.split('.').pop(),
+        sanity_level: json.sanity_level,
+        size: [json.width, json.height],
+        tags: json.tags,
+        title: json.title,
+        view: json.total_view,
+        x_restrict: json.x_restrict,
+        isAI: isAiIllust(json),
+      })))
+    }
+  }
+  return results
 }

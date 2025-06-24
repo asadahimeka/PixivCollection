@@ -32,7 +32,7 @@ import { MASONRY_INFO_AREA_HEIGHT, MASONRY_MIN_COLUMNS, MASONRY_RENDER_RANGE } f
 import { useStore } from '@/store'
 
 const store = useStore()
-const { filterConfig, imagesFiltered, masonryConfig } = toRefs(store)
+const { filterConfig, masonryConfig } = toRefs(store)
 const container = ref()
 const containerWidth = useThrottle(useElementSize(container).width, 300, true)
 const containerTop = useThrottle(useElementBounding(container).top, 30, true)
@@ -54,20 +54,20 @@ const imagesPlaced = computed(() => {
   const colsTop = Array.from<number>({ length: col.value }).fill(masonryConfig.value.gap)
 
   const result = []
-  for (let i = 0, len = imagesFiltered.value.length; i < len; i++) {
+  for (let i = 0, len = store.imagesFiltered.length; i < len; i++) {
     const colPlace = getColToPlace(colsTop)
     const imageIndex = i
     if (masonryConfig.value.mergeSameIdImage) {
-      while (i < len - 1 && imagesFiltered.value[i].id === imagesFiltered.value[i + 1].id) { i++ }
+      while (i < len - 1 && store.imagesFiltered[i].id === store.imagesFiltered[i + 1].id) { i++ }
     }
 
     const item = {
-      image: imagesFiltered.value[imageIndex],
+      image: store.imagesFiltered[imageIndex],
       place: colPlace,
       index: imageIndex,
       top: colsTop[colPlace],
       left: (imageWidth.value + masonryConfig.value.gap) * colPlace + masonryConfig.value.gap,
-      height: getImageHeight(imagesFiltered.value[imageIndex].size),
+      height: getImageHeight(store.imagesFiltered[imageIndex].size),
       count: i - imageIndex + 1,
     }
     colsTop[colPlace] += item.height + masonryConfig.value.gap + (masonryConfig.value.infoAtBottom ? MASONRY_INFO_AREA_HEIGHT : 0)

@@ -4,7 +4,7 @@
       v-show="showSidebar"
       class="fixed left-0 top-[60px] z-30 h-[calc(100vh-60px)] w-full overflow-y-auto overflow-x-hidden bg-white px-2 py-3 transition-all duration-500 sm:top-0 sm:h-screen sm:w-[400px] lg:block dark:bg-[#242424]"
     >
-      <div class="mx-10 mb-2 flex justify-between lg:hidden">
+      <div class="mx-10 mb-2 flex justify-between lg:hidden" style="align-items: center;">
         <button
           class="h-[60px] w-[60px]"
           @click="openGithub"
@@ -19,13 +19,14 @@
           <IconMoon v-if="preferColorScheme === 'dark'" class="mx-auto h-5 w-5" />
           <IconAuto v-if="preferColorScheme === 'auto'" class="mx-auto h-5 w-5" />
         </button>
-        <button
+        <CButton class="h-[40px]" style="margin: 10px 0;" @click="emit('updatebookmark')">更新收藏</CButton>
+        <!-- <button
           class="h-[60px] w-[60px]"
           @click="store.toggleFullscreen"
         >
           <IconShrink v-if="isFullscreen" class="mx-auto h-5 w-5" />
           <IconExpand v-else class="mx-auto h-5 w-5" />
-        </button>
+        </button> -->
       </div>
       <SidebarHead>浏览设置</SidebarHead>
       <SidebarBlock>
@@ -103,28 +104,32 @@
       <SidebarBlock>
         <table class="w-full text-xs" style="border: 0;">
           <tr>
-            <td><b>图片</b> - </td>
-            <td>总计: {{ store.fullCounts.total }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.total }}</td>
-            <td>展示: {{ store.imagesFiltered.length }}</td>
+            <td></td>
+            <td><b>图片</b></td>
+            <td><b>作品</b></td>
+            <td><b>作者</b></td>
+            <td><b>标签</b></td>
           </tr>
           <tr>
-            <td><b>作品</b> - </td>
-            <td>总计: {{ store.fullCounts.illustCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.illustCount }}</td>
-            <td>展示: {{ illustCount }}</td>
+            <td><b>总计</b></td>
+            <td>{{ store.fullCounts.total }}</td>
+            <td>{{ store.fullCounts.illustCount }}</td>
+            <td>{{ store.fullCounts.authorCount }}</td>
+            <td>{{ store.fullCounts.tagCount }}</td>
+          </tr>
+          <tr v-if="store.masonryConfig.sliceLocalImages">
+            <td><b>筛选</b></td>
+            <td>{{ store.filteredCounts.total }}</td>
+            <td>{{ store.filteredCounts.illustCount }}</td>
+            <td>{{ store.filteredCounts.authorCount }}</td>
+            <td>{{ store.filteredCounts.tagCount }}</td>
           </tr>
           <tr>
-            <td><b>作者</b> - </td>
-            <td>总计: {{ store.fullCounts.authorCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.authorCount }}</td>
-            <td>展示: {{ authorCount }}</td>
-          </tr>
-          <tr>
-            <td><b>标签</b> - </td>
-            <td>总计: {{ store.fullCounts.tagCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.tagCount }}</td>
-            <td>展示: {{ tagCount }}</td>
+            <td><b>展示</b></td>
+            <td>{{ store.imagesFiltered.length }}</td>
+            <td>{{ illustCount }}</td>
+            <td>{{ authorCount }}</td>
+            <td>{{ tagCount }}</td>
           </tr>
         </table>
       </SidebarBlock>
@@ -359,27 +364,20 @@
         <div class="flex items-center">
           显示卡片阴影<Switch v-model="masonryConfig.showShadow" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
-          使用本地图片<Switch v-model="masonryConfig.useLocalImage" class="ml-3" />
-        </div>
         <div class="flex items-center">
           使用 Fancybox 查看大图<Switch v-model="masonryConfig.useFancybox" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
-          使用本地 HTTP 服务加载图片列表<Switch v-model="masonryConfig.loadImagesJsonByLocalHttp" class="ml-3" />
+        <div class="flex items-center">
+          查看大图使用原图地址<Switch v-model="isOriginalSrc" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
-          使用本地 HTTP 服务加载图片<Switch v-model="masonryConfig.loadImageByLocalHttp" class="ml-3" />
+        <div class="flex items-center">
+          分页加载图片数据<Switch v-model="masonryConfig.sliceLocalImages" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
-          分页加载本地图片数据<Switch v-model="masonryConfig.sliceLocalImages" class="ml-3" />
-        </div>
-        <div class="my-1" title="如果设置了用户 ID 的话则不读取本地图片数据">
+        <div class="my-1">
           设置用户 ID
           <input
             v-model="userId"
             class="mx-1 max-w-[200px] rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-            placeholder="如果设置了用户 ID 的话则不读取本地图片数据"
           >
           <CButton class="ml-1" @click="saveReload">保存</CButton>
         </div>
@@ -387,10 +385,10 @@
           <CButton class="mb-1" @click="clearLocalSettings">
             还原默认设置
           </CButton>
-          <CButton class="mb-1" @click="loadDataFromFile">
+          <CButton v-if="__CONFIG__.userId" class="mb-1" @click="loadDataFromFile">
             从文件加载元数据
           </CButton>
-          <CButton class="mb-1" @click="exportFilteredData">
+          <CButton v-if="__CONFIG__.userId" class="mb-1" @click="exportFilteredData">
             导出当前筛选结果
           </CButton>
         </div>
@@ -400,18 +398,26 @@
 </template>
 
 <script setup lang="ts">
+import localforage from 'localforage'
 import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, MASONRY_IMAGE_SIZE_LIST, MASONRY_MAX_COLUMNS } from '@/config'
 import { useStore } from '@/store'
-import { exportFile } from '@/utils'
+import { exportFile, sleep } from '@/utils'
+
+const emit = defineEmits(['updatebookmark'])
 
 const w = (window as any)
-const isTauri = !!w.__TAURI__
 const { __CONFIG__ } = w
 const userId = ref(__CONFIG__.userId)
 const saveReload = () => {
   localStorage.setItem('__PXCT_USER_ID', userId.value)
   location.reload()
 }
+
+const isOriginalSrc = ref(!!localStorage.getItem('__PXCT_DTL_ORI_SRC'))
+watch(isOriginalSrc, val => {
+  localStorage.setItem('__PXCT_DTL_ORI_SRC', val ? '1' : '')
+  location.reload()
+})
 
 const store = useStore()
 const {
@@ -457,8 +463,9 @@ const filteredTags = computed(() => {
 
 watch(
   () => store.fullCounts.tagCount,
-  () => getFilters(),
-  { immediate: true },
+  () => {
+    getFilters()
+  },
 )
 
 function getFilters() {
@@ -478,21 +485,21 @@ function getFilters() {
     // 过滤年份
     if (filterConfig.value.year.enable) {
       if (filterConfig.value.year.value === 1) {
-        if (year > 2000) { return false }
+        if (year > 2000) { continue }
       } else if (year !== filterConfig.value.year.value) {
-        return false
+        continue
       }
     }
 
     // 过滤 R18
     if (filterConfig.value.restrict.r18 === 'hidden') {
-      if (image.x_restrict >= 1) { return false }
+      if (image.x_restrict >= 1) { continue }
     } else if (filterConfig.value.restrict.r18 === 'only') {
-      if (image.x_restrict < 1) { return false }
+      if (image.x_restrict < 1) { continue }
     }
 
     // 过滤不健全度
-    if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { return }
+    if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { continue }
 
     // 计算作者数据
     const { author } = image
@@ -586,16 +593,11 @@ function loadDataFromFile() {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = e => {
+      reader.onload = async e => {
         const data = JSON.parse(e.target?.result as string)
-        w.__fullImages__ = data
-        store.updateFullCounts()
-        if (store.masonryConfig.sliceLocalImages) {
-          store.curPageCursor = 0
-          store.loadImagesByPage()
-        } else {
-          store.imagesFiltered = data
-        }
+        await localforage.setItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`, data)
+        await sleep(200)
+        location.reload()
       }
       reader.readAsText(file)
     }
@@ -603,9 +605,13 @@ function loadDataFromFile() {
   input.click()
 }
 
-function clearLocalSettings() {
+async function clearLocalSettings() {
+  const ok = confirm('确认要还原默认设置？')
+  if (!ok) return
   store.settings.clear()
   localStorage.clear()
+  await localforage.clear()
+  await sleep(200)
   location.reload()
 }
 

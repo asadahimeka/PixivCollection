@@ -144,7 +144,7 @@ const store = useStore()
 const { imageViewer, filterConfig, masonryConfig } = toRefs(store)
 const { show: imageViewerShow, info: imageViewerInfo } = toRefs(imageViewer.value)
 
-const getImageSrc = (img: Image) => getImageLargeSrc(store, img)
+const getImageSrc = (img: Image) => getImageLargeSrc(img)
 
 const imageRatio = ref(1)
 const imagePos = ref({ x: 0, y: 0 })
