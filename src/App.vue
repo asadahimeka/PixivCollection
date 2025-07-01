@@ -34,6 +34,7 @@
               alt=""
             >
           </div>
+          <p class="my-2">设置成功后请点击右上角“更新收藏”</p>
           <CButton class="mx-auto my-5 block bg-[#409eff]" @click="saveReload">保存并刷新</CButton>
         </div>
       </template>
