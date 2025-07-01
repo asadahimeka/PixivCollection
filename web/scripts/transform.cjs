@@ -2,6 +2,32 @@
 const { join } = require('node:path')
 const { readdir, readFile, writeFile } = require('node:fs/promises')
 
+const aiTags = [
+  'ai',
+  'ai生成',
+  'ai生成作品',
+  'ai作画',
+  'aiイラスト',
+  'aigenerated',
+  'ai-generated',
+  'ai-assisted',
+  'ai辅助',
+  'aiアシスタンス',
+  'ai_generated',
+  'aiartwork',
+  'aigirl',
+  'ai作品',
+  'ai生成イラスト',
+  'ai画像',
+  'ai绘画',
+  'novelai',
+  'novelaidiffusion',
+  'stablediffusion',
+]
+function isAiIllust(artwork) {
+  return artwork.illust_ai_type == 2 || !!artwork.tags?.some(e => aiTags.includes(e.name?.toLowerCase()))
+}
+
 async function main() {
   try {
     const dirPath = 'E:\\Pictures\\Pixiv\\data\\artworks'
@@ -35,7 +61,7 @@ async function main() {
           title: json.title,
           view: json.total_view,
           x_restrict: json.x_restrict,
-          isAI: json.illust_ai_type === 2,
+          isAI: isAiIllust(json),
         })
       } else {
         results.push(...json.meta_pages.map((e, i) => ({
@@ -62,7 +88,7 @@ async function main() {
           title: json.title,
           view: json.total_view,
           x_restrict: json.x_restrict,
-          isAI: json.illust_ai_type === 2,
+          isAI: isAiIllust(json),
         })))
       }
     }

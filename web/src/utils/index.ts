@@ -87,3 +87,29 @@ export function getImageLargeSrc(store: any, img: Image) {
 export function getImageOriginalSrc(img: Image) {
   return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://f.cocomi.eu.org/pid/${img.id}?p=${img.part}`
 }
+
+const aiTags = [
+  'ai',
+  'ai生成',
+  'ai生成作品',
+  'ai作画',
+  'aiイラスト',
+  'aigenerated',
+  'ai-generated',
+  'ai-assisted',
+  'ai辅助',
+  'aiアシスタンス',
+  'ai_generated',
+  'aiartwork',
+  'aigirl',
+  'ai作品',
+  'ai生成イラスト',
+  'ai画像',
+  'ai绘画',
+  'novelai',
+  'novelaidiffusion',
+  'stablediffusion',
+]
+export function isAiIllust(artwork: any) {
+  return artwork.illust_ai_type == 2 || !!artwork.tags?.some((e: any) => aiTags.includes(e.name?.toLowerCase()))
+}

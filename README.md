@@ -90,4 +90,4 @@ Licensed under the [MIT](https://github.com/asadahimeka/PixivCollection/blob/tau
 
 Copyright © 2024 Yumine Sakura
 
-<p><img src="https://api.moedog.org/count/@asadahimeka-PixivCollection-github" alt="PixivCollection"></p>
+<p><img src="https://count.nanoka.top/@himeka-PixivCollection" alt="PixivCollection"></p>

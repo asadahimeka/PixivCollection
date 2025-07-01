@@ -10,7 +10,7 @@ export const useStore = defineStore('main', {
     showSidebar: false,
     showNav: true,
 
-    imagesFiltered: [] as Image[],
+    imagesFiltered: shallowRef<Image[]>([]),
     imagesLoaded: new Set(),
     curPageCursor: 0,
     loadEnd: false,
@@ -121,8 +121,9 @@ export const useStore = defineStore('main', {
         }
         // 搜索
         if (this.filterConfig.search.enable) {
-          if (this.filterConfig.search.value.trim() !== '' && image.searchStr !== undefined) {
-            if (!image.searchStr.includes(this.filterConfig.search.value.trim().toLowerCase())) { return false }
+          const term = this.filterConfig.search.value.trim()
+          if (term !== '' && !getSearchStr(image).includes(term.toLowerCase())) {
+            return false
           }
           return true
         }
@@ -282,24 +283,6 @@ export const useStore = defineStore('main', {
     toggleSearch(): void {
       if (this.filterConfig.search.enable) {
         this.updateSeatchValue('')
-      } else {
-        for (let i = 0, len = w.__fullImages__.length; i < len; i++) {
-          const image = w.__fullImages__[i] as Image
-          if (image.searchStr === undefined) {
-            image.searchStr = (
-              image.id
-              + image.title
-              + image.author.id
-              + image.author.name
-              + image.tags
-                .map(
-                  tag => tag.translated_name
-                    ? tag.name + tag.translated_name
-                    : tag.name,
-                ).join()
-            ).toLowerCase()
-          }
-        }
       }
       this.filterConfig.search.enable = !this.filterConfig.search.enable
     },
@@ -366,3 +349,18 @@ export const useStore = defineStore('main', {
     },
   },
 })
+
+function getSearchStr(image: Image) {
+  return (
+    image.id
+    + image.title
+    + image.author.id
+    + image.author.name
+    + image.tags
+      .map(
+        tag => tag.translated_name
+          ? tag.name + tag.translated_name
+          : tag.name,
+      ).join()
+  ).toLowerCase()
+}

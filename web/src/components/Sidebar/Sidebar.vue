@@ -2,7 +2,7 @@
   <Transition name="popup-l">
     <div
       v-show="showSidebar"
-      class="fixed left-0 top-[60px] z-30 h-[calc(100vh-60px)] w-full overflow-y-auto overflow-x-hidden bg-white px-2 py-3 transition-all duration-500 sm:top-0 sm:h-screen sm:w-[400px] lg:block dark:bg-[#242424]"
+      class="fixed left-0 top-[60px] z-30 h-[calc(100vh-60px)] w-full overflow-y-auto overflow-x-hidden bg-white px-2 py-3 transition-all duration-500 dark:bg-[#242424] sm:top-0 sm:h-screen sm:w-[400px] lg:block"
     >
       <div class="mx-10 mb-2 flex justify-between lg:hidden">
         <button
@@ -103,28 +103,32 @@
       <SidebarBlock>
         <table class="w-full text-xs" style="border: 0;">
           <tr>
-            <td><b>图片</b> - </td>
-            <td>总计: {{ store.fullCounts.total }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.total }}</td>
-            <td>展示: {{ store.imagesFiltered.length }}</td>
+            <td></td>
+            <td><b>图片</b></td>
+            <td><b>作品</b></td>
+            <td><b>作者</b></td>
+            <td><b>标签</b></td>
           </tr>
           <tr>
-            <td><b>作品</b> - </td>
-            <td>总计: {{ store.fullCounts.illustCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.illustCount }}</td>
-            <td>展示: {{ illustCount }}</td>
+            <td><b>总计</b></td>
+            <td>{{ store.fullCounts.total }}</td>
+            <td>{{ store.fullCounts.illustCount }}</td>
+            <td>{{ store.fullCounts.authorCount }}</td>
+            <td>{{ store.fullCounts.tagCount }}</td>
           </tr>
           <tr>
-            <td><b>作者</b> - </td>
-            <td>总计: {{ store.fullCounts.authorCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.authorCount }}</td>
-            <td>展示: {{ authorCount }}</td>
+            <td><b>筛选</b></td>
+            <td>{{ store.filteredCounts.total }}</td>
+            <td>{{ store.filteredCounts.illustCount }}</td>
+            <td>{{ store.filteredCounts.authorCount }}</td>
+            <td>{{ store.filteredCounts.tagCount }}</td>
           </tr>
           <tr>
-            <td><b>标签</b> - </td>
-            <td>总计: {{ store.fullCounts.tagCount }}</td>
-            <td v-if="store.masonryConfig.sliceLocalImages">筛选: {{ store.filteredCounts.tagCount }}</td>
-            <td>展示: {{ tagCount }}</td>
+            <td><b>展示</b></td>
+            <td>{{ store.imagesFiltered.length }}</td>
+            <td>{{ illustCount }}</td>
+            <td>{{ authorCount }}</td>
+            <td>{{ tagCount }}</td>
           </tr>
         </table>
       </SidebarBlock>
@@ -458,7 +462,7 @@ const filteredTags = computed(() => {
 watch(
   () => store.fullCounts.tagCount,
   () => getFilters(),
-  { immediate: true },
+  // { immediate: true },
 )
 
 function getFilters() {
@@ -478,21 +482,21 @@ function getFilters() {
     // 过滤年份
     if (filterConfig.value.year.enable) {
       if (filterConfig.value.year.value === 1) {
-        if (year > 2000) { return false }
+        if (year > 2000) { continue }
       } else if (year !== filterConfig.value.year.value) {
-        return false
+        continue
       }
     }
 
     // 过滤 R18
     if (filterConfig.value.restrict.r18 === 'hidden') {
-      if (image.x_restrict >= 1) { return false }
+      if (image.x_restrict >= 1) { continue }
     } else if (filterConfig.value.restrict.r18 === 'only') {
-      if (image.x_restrict < 1) { return false }
+      if (image.x_restrict < 1) { continue }
     }
 
     // 过滤不健全度
-    if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { return }
+    if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { continue }
 
     // 计算作者数据
     const { author } = image

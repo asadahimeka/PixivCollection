@@ -4,7 +4,7 @@
       <Sidebar />
       <SidebarMask />
       <Navbar @updatebookmark="updateBookmark()" />
-      <template v-if="!imagesFiltered.length">
+      <template v-if="!store.imagesFiltered.length">
         <Tip v-if="loading">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
           <div class="text-center">
@@ -90,6 +90,7 @@ import { Command } from '@tauri-apps/api/shell'
 
 import { SettingType } from '@orilight/vue-settings'
 import { useDebounceFn } from '@vueuse/core'
+import { isAiIllust } from './utils'
 import { useStore } from '@/store'
 
 const store = useStore()
@@ -97,7 +98,6 @@ const store = useStore()
 const {
   preferColorScheme,
   colorScheme,
-  imagesFiltered,
   masonryConfig,
   filterConfig,
 } = toRefs(store)
@@ -242,18 +242,26 @@ onUnmounted(() => {
   store.settings.unregisterAll()
 })
 
+const isInit = ref(false)
 watch(
   () => store.filterConfig,
   useDebounceFn(() => {
-    if (store.masonryConfig.sliceLocalImages) {
-      store.curPageCursor = 0
-      store.loadEnd = false
-      store.imagesFiltered = []
-      store.loadImagesByPage()
-    } else {
-      store.loadFilteredImages()
-    }
-    document.documentElement.scrollTop = 0
+    if (!isInit.value) return
+    showModalMsg.value = true
+    modalMsg.value = '<p style="text-align:center">加载中</p>'
+    setTimeout(() => {
+      if (store.masonryConfig.sliceLocalImages) {
+        store.curPageCursor = 0
+        store.loadEnd = false
+        store.imagesFiltered = []
+        store.loadImagesByPage()
+      } else {
+        store.loadFilteredImages()
+      }
+      document.documentElement.scrollTop = 0
+      showModalMsg.value = false
+      modalMsg.value = ''
+    }, 100)
   }, 250),
   { deep: true },
 )
@@ -293,10 +301,14 @@ async function init() {
     }
   } catch (e) {
     console.error(e)
+    const msg = (e as Error).message || JSON.stringify(e)
     showModalMsg.value = true
-    modalMsg.value = (e as Error).message || JSON.stringify(e)
+    modalMsg.value += `<br><div style="color:#ff6565">${msg}</div>`
   } finally {
     loading.value = false
+    setTimeout(() => {
+      isInit.value = true
+    }, 500)
   }
 }
 
@@ -366,7 +378,7 @@ function transformResData(data: any[]) {
         title: json.title,
         view: json.total_view,
         x_restrict: json.x_restrict,
-        isAI: json.illust_ai_type === 2,
+        isAI: isAiIllust(json),
       })
     } else {
       results.push(...json.meta_pages.map((e: any, i: number) => ({
@@ -393,7 +405,7 @@ function transformResData(data: any[]) {
         title: json.title,
         view: json.total_view,
         x_restrict: json.x_restrict,
-        isAI: json.illust_ai_type === 2,
+        isAI: isAiIllust(json),
       })))
     }
   }
@@ -445,7 +457,7 @@ body:has(.bookmark-update-msg) {
   padding: 10px;
   color: white;
   font-style: normal;
-  font-family: monospace;
+  font-family: SimSun, monospace;
   font-weight: bold;
   cursor: pointer;
 }

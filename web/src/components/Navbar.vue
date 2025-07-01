@@ -11,6 +11,7 @@
         :class="{
           'w-full': filterConfig.search.enable,
         }"
+        style="align-items: center"
       >
         <button
           class="h-[60px] w-[60px] hover:bg-gray-400/20"
@@ -25,9 +26,26 @@
           <IconSearch v-if="!filterConfig.search.enable" class="mx-auto h-6 w-6" />
           <IconClose v-else class="mx-auto h-6 w-6" />
         </button>
+        <span v-if="!filterConfig.search.enable && (filterConfig.author.enable || filterConfig.tag.enable)" class="mr-1 hidden sm:block">
+          {{ store.imagesFiltered.length }} PcsAdd commentMore actions
+        </span>
+        <button
+          v-if="!filterConfig.search.enable && filterConfig.author.enable"
+          class="m-0.5 hidden h-[20px] rounded-sm bg-blue-500/20 px-0.5 text-sm sm:block"
+          @click="handleClickAuthor(filterConfig.author.id)"
+        >
+          {{ `作者：${filterConfig.author.id}` }}
+        </button>
+        <button
+          v-if="!filterConfig.search.enable && filterConfig.tag.enable"
+          class="m-0.5 hidden h-[20px] rounded-sm bg-black/20 px-0.5 text-sm sm:block"
+          @click="handleClickTag(filterConfig.tag.name)"
+        >
+          {{ `标签：${filterConfig.tag.name}` }}
+        </button>
         <div v-show="filterConfig.search.enable" class="mr-[60px] flex-1 sm:mr-0">
           <input
-            class="box-border h-[60px] w-full border-x border-gray-400/50 bg-transparent px-4 outline-none"
+            class="box-border h-[60px] w-full border-l border-gray-400/50 bg-transparent px-4 outline-none"
             type="text"
             placeholder="图片id/图片标题/作者id/作者昵称/标签"
             :value="filterConfig.search.value"
@@ -44,7 +62,7 @@
       </button>
       <div
         v-show="!filterConfig.search.enable"
-        class="mx-[60px] h-[60px] select-none text-center text-lg leading-[60px]"
+        class="app-title mx-[60px] h-[60px] select-none text-center text-lg leading-[60px]"
         @click="navToTop"
       >
         <span class="text-[#0398fa]">Pixiv</span>Collection
@@ -92,7 +110,7 @@ const { preferColorScheme, showSidebar, showNav, imageViewer, isFullscreen, filt
 
 const updateSearchStr = useDebounceFn(value => {
   store.updateSeatchValue(value)
-}, 800)
+}, 500)
 
 let oldY = 0
 
@@ -120,4 +138,39 @@ function handleSearchInput(e: Event) {
 function reloadPage() {
   location.reload()
 }
+
+function handleClickAuthor(authorId: number) {
+  if (filterConfig.value.author.enable && filterConfig.value.author.id === authorId) {
+    filterConfig.value.author.enable = false
+    filterConfig.value.author.id = -1
+  } else {
+    filterConfig.value.author.id = authorId
+    filterConfig.value.author.enable = true
+  }
+}
+
+function handleClickTag(tagName: string) {
+  if (filterConfig.value.tag.enable && filterConfig.value.tag.name === tagName) {
+    filterConfig.value.tag.enable = false
+    filterConfig.value.tag.name = ''
+  } else {
+    filterConfig.value.tag.name = tagName
+    filterConfig.value.tag.enable = true
+  }
+}
 </script>
+
+<style>
+@media screen and (max-width: 1024px) {
+  .app-title {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+  }
+}
+@media screen and (max-width: 640px) {
+  .app-title {
+    display: block;
+  }
+}
+</style>
