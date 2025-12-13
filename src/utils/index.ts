@@ -1,4 +1,4 @@
-import { LINK_PIXIV_ARTWORK, LINK_PIXIV_USER } from '@/config'
+// import { LINK_PIXIV_ARTWORK, LINK_PIXIV_USER } from '@/config'
 
 export function formatBytes(bytes: number) {
   if (bytes === 0) { return '0 B' }
@@ -9,11 +9,13 @@ export function formatBytes(bytes: number) {
 }
 
 export function openPixivIllust(pid: number) {
-  window.open(LINK_PIXIV_ARTWORK.replace('{id}', pid.toString()), '_blank')
+  // window.open(LINK_PIXIV_ARTWORK.replace('{id}', pid.toString()), '_blank')
+  (parent as any).__pxcl.routerPush(`/i/${pid}`)
 }
 
 export function openPixivUser(uid: number) {
-  window.open(LINK_PIXIV_USER.replace('{id}', uid.toString()), '_blank')
+  // window.open(LINK_PIXIV_USER.replace('{id}', uid.toString()), '_blank')
+  (parent as any).__pxcl.routerPush(`/u/${uid}`)
 }
 
 export function exportFile(data: string, filename = 'export-{ts}.json') {
@@ -26,11 +28,25 @@ export function exportFile(data: string, filename = 'export-{ts}.json') {
   URL.revokeObjectURL(url)
 }
 
+const PXIMG_BASE = (() => {
+  try {
+    const json = localStorage.getItem('PXIMG_PROXY')
+    if (!json) return 'pximg.cocomi.eu.org'
+    return JSON.parse(json).data as string
+  } catch (err) {
+    return 'pximg.cocomi.eu.org'
+  }
+})()
+
+const handleRecoverSrc = (src: string, img: Image) => src?.includes('common/images/limit')
+  ? `https://pximg.cocomi.eu.org/_pid_/${img.id}_${img.part}_m`
+  : src
+
 export function getImageMediumSrc(img: Image) {
-  return img.images?.l
-    .replace('i.pximg.net', 'pximg.cocomi.eu.org')
+  const src = img.images?.l
+    .replace('i.pximg.net', PXIMG_BASE)
     .replace(/\/c\/\d+x\d+(_\d+)?\//g, '/c/1200x1200_90_webp/')
-    || `https://i.loli.best/medium/${img.id}`
+  return handleRecoverSrc(src, img)
 }
 
 const isOriginalSrc = !!localStorage.getItem('__PXCT_DTL_ORI_SRC')
@@ -38,16 +54,18 @@ export function getImageLargeSrc(img: Image) {
   if (img.images?.o.includes('_ugoira')) {
     return `https://ugoira-mp4-dl.cocomi.eu.org/${img.id}.mp4`
   }
-  return isOriginalSrc
-    ? (img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://i.loli.best/${img.id}/${img.part}`)
-    : (img.images?.l
-        .replace('i.pximg.net', 'pximg.cocomi.eu.org')
-        .replace(/\/c\/\d+x\d+(_\d+)?\//g, '/c/1200x1200_90_webp/')
-      || `https://i.loli.best/large/${img.id}/${img.part}`)
+  const src = isOriginalSrc
+    ? img.images?.o.replace('i.pximg.net', PXIMG_BASE)
+    : img.images?.l
+      .replace('i.pximg.net', PXIMG_BASE)
+      .replace(/\/c\/\d+x\d+(_\d+)?\//g, '/c/1200x1200_90_webp/')
+
+  return handleRecoverSrc(src, img)
 }
 
 export function getImageOriginalSrc(img: Image) {
-  return img.images?.o.replace('i.pximg.net', 'pximg.cocomi.eu.org') || `https://i.loli.best/${img.id}/${img.part}`
+  const src = img.images?.o.replace('i.pximg.net', PXIMG_BASE)
+  return handleRecoverSrc(src, img)
 }
 
 export async function sleep(ms: number) {

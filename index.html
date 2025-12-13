@@ -9,7 +9,7 @@
   </head>
   <body>
     <script>
-      window.__CONFIG__ = { userId: localStorage.getItem('__PXCT_USER_ID') || '' }
+      window.__CONFIG__ = { userId: new URLSearchParams(location.search).get('userId') || localStorage.getItem('__PXCT_USER_ID') || '' }
       window.__fullImages__ = []
       window.__filteredImages__ = []
     </script>

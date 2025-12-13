@@ -2,7 +2,7 @@
   <Transition name="popup-l">
     <div
       v-show="showSidebar"
-      class="fixed left-0 top-[60px] z-30 h-[calc(100vh-60px)] w-full overflow-y-auto overflow-x-hidden bg-white px-2 py-3 transition-all duration-500 sm:top-0 sm:h-screen sm:w-[400px] lg:block dark:bg-[#242424]"
+      class="fixed left-0 top-[60px] z-30 h-[calc(100vh-60px)] w-full overflow-y-auto overflow-x-hidden bg-white px-2 py-3 transition-all duration-500 dark:bg-[#242424] sm:top-0 sm:h-screen sm:w-[400px] lg:block"
     >
       <div class="mx-10 mb-2 flex justify-between lg:hidden" style="align-items: center;">
         <button
@@ -358,9 +358,9 @@
       </SidebarBlock>
       <SidebarHead>高级选项</SidebarHead>
       <SidebarBlock>
-        <div class="flex items-center">
+        <!-- <div class="flex items-center">
           启用虚拟列表<Switch v-model="masonryConfig.virtualListEnable" class="ml-3" />
-        </div>
+        </div> -->
         <div class="flex items-center">
           显示卡片阴影<Switch v-model="masonryConfig.showShadow" class="ml-3" />
         </div>
@@ -373,14 +373,14 @@
         <div class="flex items-center">
           分页加载图片数据<Switch v-model="masonryConfig.sliceLocalImages" class="ml-3" />
         </div>
-        <div class="my-1">
+        <!-- <div class="my-1">
           设置用户 ID
           <input
             v-model="userId"
             class="mx-1 max-w-[200px] rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
           >
           <CButton class="ml-1" @click="saveReload">保存</CButton>
-        </div>
+        </div> -->
         <div class="mt-1">
           <CButton class="mb-1" @click="clearLocalSettings">
             还原默认设置
@@ -594,8 +594,19 @@ function loadDataFromFile() {
     if (file) {
       const reader = new FileReader()
       reader.onload = async e => {
-        const data = JSON.parse(e.target?.result as string)
-        await localforage.setItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`, data)
+        const data = (() => {
+          try {
+            return JSON.parse(e.target?.result as string)
+          } catch (err) {
+            return []
+          }
+        })()
+        if (Array.isArray(data) && data.length) {
+          await localforage.setItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`, data)
+          await localforage.setItem(`__PXCT_LAST_PID_u${__CONFIG__.userId}`, data[0].id)
+        } else {
+          alert('导入出错')
+        }
         await sleep(200)
         location.reload()
       }
@@ -606,11 +617,16 @@ function loadDataFromFile() {
 }
 
 async function clearLocalSettings() {
-  const ok = confirm('确认要还原默认设置？')
+  const ok = confirm('确认要还原默认设置？还原后所有设置项与收藏数据将被清除')
   if (!ok) return
-  store.settings.clear()
-  localStorage.clear()
-  await localforage.clear()
+  Object.keys(localStorage)
+    .filter(key => /PXCT[-_]/.test(key))
+    .forEach(key => localStorage.removeItem(key))
+  await Promise.all(
+    (await localforage.keys())
+      .filter(key => /PXCT[-_]/.test(key))
+      .map(key => localforage.removeItem(key)),
+  )
   await sleep(200)
   location.reload()
 }

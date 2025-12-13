@@ -6,14 +6,14 @@
       <Navbar @updatebookmark="updateBookmark()" />
       <template v-if="!store.imagesFiltered.length">
         <Tip v-if="loading">
-          <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
+          <!-- <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" /> -->
           <div class="text-center">
             数据加载中<br>
           </div>
         </Tip>
         <Tip v-if="!loading && !notSettled">
           <div class="text-center">
-            暂无数据<br>
+            暂无数据<br>请更新收藏
           </div>
         </Tip>
         <div v-if="!loading && notSettled" class="my-2 text-center">
@@ -159,6 +159,10 @@ async function init() {
       store.imagesFiltered = contents
     }
     console.timeEnd('init')
+    console.time('nextTick')
+    nextTick(() => {
+      console.timeEnd('nextTick')
+    })
   } catch (e) {
     console.error(e)
     const msg = (e as Error).message || JSON.stringify(e)
@@ -195,7 +199,7 @@ async function updateBookmark() {
 
     const lastIdKey = `__PXCT_LAST_PID_u${__CONFIG__.userId}`
     const bookmarkKey = `__PXCT_BOOKMARKS_u${__CONFIG__.userId}`
-    const lastId = localStorage.getItem(lastIdKey) || ''
+    const lastId = (await localforage.getItem(lastIdKey)) || ''
     const bookmarkCache: any[] = (await localforage.getItem(bookmarkKey)) || []
 
     const illusts: any[] = []
@@ -219,7 +223,7 @@ async function updateBookmark() {
     maxBookmarkId = '0'
     if (illusts.length) {
       modalMsg.value += '存储中...<br>'
-      localStorage.setItem(lastIdKey, illusts[0].id)
+      await localforage.setItem(lastIdKey, illusts[0].id)
       await localforage.setItem(bookmarkKey, illusts.concat(bookmarkCache))
       modalMsg.value += '存储完成<br>'
     } else {
@@ -235,10 +239,11 @@ async function updateBookmark() {
 }
 
 async function fetchUserBookmarks() {
-  const url = `https://hibiapi.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}&_t=${Date.now()}`
-  console.log('url: ', url)
-  const resp = await fetch(url)
-  const { next_url, illusts = [] } = await resp.json()
+  // const url = `https://hibiapi.cocomi.eu.org/api/pixiv/favorite?id=${__CONFIG__.userId}&max_bookmark_id=${maxBookmarkId}&_t=${Date.now()}`
+  // console.log('url: ', url)
+  // const resp = await fetch(url)
+  // const { next_url, illusts = [] } = await resp.json()
+  const { next_url, illusts = [] } = await (parent as any).__pxcl.fetchUserBookmarks(maxBookmarkId)
   if (!next_url || !illusts.length) {
     store.loadEnd = true
     maxBookmarkId = '0'
@@ -276,6 +281,7 @@ body:has(.bookmark-update-msg) {
 
 .bookmark-update-msg .bum-cnt {
   min-width: 500px;
+  min-width: min(500px, 98vw);
   max-width: 98vw;
   max-height: 100vh;
   padding: 20px;

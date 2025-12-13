@@ -27,7 +27,7 @@ export default defineConfig(env => ({
         if (env.command == 'serve') return html
         const buildDate = new Date().toLocaleString()
         return html
-          .replace('</head>', '<script defer src="https://um.nanoka.top/script.js" data-website-id="ada7855c-2e95-4286-8b1c-240c67c79a94"></script></head>')
+          .replace('</head>', '<script defer src="https://um.nanoka.top/script.js" data-website-id="69717e89-51a1-409a-80e6-89210a688efd"></script></head>')
           .replace('<body', `<body data-build-date="${buildDate}"`)
       },
     },
