@@ -1,4 +1,8 @@
-// import { LINK_PIXIV_ARTWORK, LINK_PIXIV_USER } from '@/config'
+import localforage from 'localforage'
+
+export const localDB = localforage.createInstance({
+  name: 'pxcl-store',
+})
 
 export function formatBytes(bytes: number) {
   if (bytes === 0) { return '0 B' }
@@ -39,7 +43,7 @@ const PXIMG_BASE = (() => {
 })()
 
 const handleRecoverSrc = (src: string, img: Image) => src?.includes('common/images/limit')
-  ? `https://pximg.cocomi.eu.org/_pid_/${img.id}_${img.part}_m`
+  ? `https://pximg.cocomi.eu.org/_pid_/${img.id}_${img.part}_l`
   : src
 
 export function getImageMediumSrc(img: Image) {

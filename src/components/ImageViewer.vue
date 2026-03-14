@@ -209,7 +209,15 @@ watch(imageViewerInfo, val => {
 function handleImgErr(ev: Event) {
   if (!imageViewer.value.info) return
   const img = ev.target as HTMLImageElement
-  if (img.src.endsWith('/') || img.src.includes('/_pid_/') || img.src.endsWith('.mp4') || imageViewer.value.info?.images?.o.includes('_ugoira')) return
+  if (
+    !img.src
+    || img.src == location.href
+    || img.src.includes('/_pid_/')
+    || img.src.endsWith('.mp4')
+    || imageViewer.value.info?.images?.o.includes('_ugoira')
+  ) {
+    return
+  }
   imageSrc.value = `https://pximg.cocomi.eu.org/_pid_/${imageViewer.value.info.id}_${imageViewer.value.info.part}_o`
   imageViewer.value.info.images.o = imageSrc.value
   loadingImage.value = false

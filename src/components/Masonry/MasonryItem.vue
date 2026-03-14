@@ -194,7 +194,14 @@ function handleImageLoaded() {
 
 function handleImgErr(ev: Event) {
   const img = ev.target as HTMLImageElement
-  if (img.src.endsWith('/') || img.src.includes('/_pid_/') || props.imageData.images?.o.includes('_ugoira')) return
+  if (
+    !img.src
+    || img.src == location.href
+    || img.src.includes('/_pid_/')
+    || props.imageData.images?.o.includes('_ugoira')
+  ) {
+    return
+  }
   img.src = `https://pximg.cocomi.eu.org/_pid_/${props.imageData.id}_${props.imageData.part}_l`
 }
 

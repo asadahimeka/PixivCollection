@@ -398,10 +398,9 @@
 </template>
 
 <script setup lang="ts">
-import localforage from 'localforage'
 import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, MASONRY_IMAGE_SIZE_LIST, MASONRY_MAX_COLUMNS } from '@/config'
 import { useStore } from '@/store'
-import { exportFile, sleep } from '@/utils'
+import { exportFile, localDB, sleep } from '@/utils'
 
 const emit = defineEmits(['updatebookmark'])
 
@@ -602,8 +601,8 @@ function loadDataFromFile() {
           }
         })()
         if (Array.isArray(data) && data.length) {
-          await localforage.setItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`, data)
-          await localforage.setItem(`__PXCT_LAST_PID_u${__CONFIG__.userId}`, data[0].id)
+          await localDB.setItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`, data)
+          await localDB.setItem(`__PXCT_LAST_PID_u${__CONFIG__.userId}`, data[0].id)
         } else {
           alert('导入出错')
         }
@@ -623,9 +622,9 @@ async function clearLocalSettings() {
     .filter(key => /PXCT[-_]/.test(key))
     .forEach(key => localStorage.removeItem(key))
   await Promise.all(
-    (await localforage.keys())
+    (await localDB.keys())
       .filter(key => /PXCT[-_]/.test(key))
-      .map(key => localforage.removeItem(key)),
+      .map(key => localDB.removeItem(key)),
   )
   await sleep(200)
   location.reload()

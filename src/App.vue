@@ -56,9 +56,8 @@
 <script setup lang="ts">
 import { SettingType } from '@orilight/vue-settings'
 import { useDebounceFn } from '@vueuse/core'
-import localforage from 'localforage'
 import { useStore } from '@/store'
-import { sleep, transformResData } from '@/utils'
+import { localDB, sleep, transformResData } from '@/utils'
 
 const store = useStore()
 
@@ -147,7 +146,7 @@ async function init() {
     store.loadEnd = false
     store.imagesFiltered = []
     console.time('db')
-    const contents: any[] = (await localforage.getItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`)) || []
+    const contents: any[] = (await localDB.getItem(`__PXCT_BOOKMARKS_u${__CONFIG__.userId}`)) || []
     console.timeEnd('db')
     console.time('init')
     w.__fullImages__ = contents
@@ -199,8 +198,8 @@ async function updateBookmark() {
 
     const lastIdKey = `__PXCT_LAST_PID_u${__CONFIG__.userId}`
     const bookmarkKey = `__PXCT_BOOKMARKS_u${__CONFIG__.userId}`
-    const lastId = (await localforage.getItem(lastIdKey)) || ''
-    const bookmarkCache: any[] = (await localforage.getItem(bookmarkKey)) || []
+    const lastId = (await localDB.getItem(lastIdKey)) || ''
+    const bookmarkCache: any[] = (await localDB.getItem(bookmarkKey)) || []
 
     const illusts: any[] = []
     let stop = false
@@ -223,8 +222,8 @@ async function updateBookmark() {
     maxBookmarkId = '0'
     if (illusts.length) {
       modalMsg.value += '存储中...<br>'
-      await localforage.setItem(lastIdKey, illusts[0].id)
-      await localforage.setItem(bookmarkKey, illusts.concat(bookmarkCache))
+      await localDB.setItem(lastIdKey, illusts[0].id)
+      await localDB.setItem(bookmarkKey, illusts.concat(bookmarkCache))
       modalMsg.value += '存储完成<br>'
     } else {
       modalMsg.value += '暂无更新<br>'
