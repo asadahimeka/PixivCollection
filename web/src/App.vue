@@ -201,7 +201,7 @@ async function saveReload() {
       alert('请输入有效的 RefreshToken')
       return
     }
-    if (!/^http\:\/\/\d+\.\d+\.\d+\.\d+\:\d+$/.test(pxderProxy.value)) {
+    if (pxderProxy.value && !/^http\:\/\/\d+\.\d+\.\d+\.\d+\:\d+$/.test(pxderProxy.value)) {
       alert('请输入有效的 HTTP 代理')
       return
     }
