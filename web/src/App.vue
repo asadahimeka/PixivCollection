@@ -90,7 +90,7 @@ import { Command } from '@tauri-apps/api/shell'
 
 import { SettingType } from '@orilight/vue-settings'
 import { useDebounceFn } from '@vueuse/core'
-import { isAiIllust } from './utils'
+import { isAiIllust, sleep } from './utils'
 import { useStore } from '@/store'
 
 const store = useStore()
@@ -227,11 +227,11 @@ async function saveReload() {
 }
 
 onMounted(async () => {
-  store.settings.register('preferColorScheme', preferColorScheme)
-  store.settings.register('masonryConfig', masonryConfig, SettingType.Json, {
+  store.settings.register('preferColorScheme', preferColorScheme as any)
+  store.settings.register('masonryConfig', masonryConfig as any, SettingType.Json, {
     deepMerge: true,
   })
-  store.settings.register('restrictConfig', toRef(filterConfig.value, 'restrict'), SettingType.Json, {
+  store.settings.register('restrictConfig', toRef(filterConfig.value, 'restrict') as any, SettingType.Json, {
     deepMerge: true,
   })
 

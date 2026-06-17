@@ -40,6 +40,7 @@
         :src="imageLoad ? imgSrc : ''"
         loading="lazy"
         @load="handleImageLoaded"
+        @error="handleImgErr"
         @click="$emit('viewImage', imageIndex)"
       >
     </div>
@@ -128,6 +129,7 @@
           :key="idx"
           class="my-0.5 mr-1 inline-block rounded-sm bg-black/30 px-1 text-xs"
           :class="tag.name === 'R-18' ? 'bg-red-500/80' : ''"
+          @click.stop="handleClickTag(tag.name)"
         >
           {{ config.tagTranslation ? tag.translated_name || tag.name : tag.name }}
         </span>
@@ -188,6 +190,19 @@ onUnmounted(() => {
 function handleImageLoaded() {
   imageLoaded.value = true
   store.imagesLoaded.add(imageIdxStr)
+}
+
+function handleImgErr(ev: Event) {
+  const img = ev.target as HTMLImageElement
+  if (
+    !img.src
+    || img.src == location.href
+    || img.src.includes('/_pid_/')
+    || props.imageData.images?.o.includes('_ugoira')
+  ) {
+    return
+  }
+  img.src = `https://pximg.cocomi.eu.org/_pid_/${props.imageData.id}_${props.imageData.part}_l`
 }
 
 const { filterConfig } = toRefs(store)

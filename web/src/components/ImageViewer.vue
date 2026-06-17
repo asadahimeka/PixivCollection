@@ -128,6 +128,7 @@
           loading="lazy"
           @mousedown.prevent="handleMouseDragStart"
           @touchstart.prevent="handleTouchStart"
+          @error="handleImgErr"
         >
       </div>
     </div>
@@ -204,6 +205,23 @@ watch(imageViewerInfo, val => {
 
   restoreImage()
 })
+
+function handleImgErr(ev: Event) {
+  if (!imageViewer.value.info) return
+  const img = ev.target as HTMLImageElement
+  if (
+    !img.src
+    || img.src == location.href
+    || img.src.includes('/_pid_/')
+    || img.src.endsWith('.mp4')
+    || imageViewer.value.info?.images?.o.includes('_ugoira')
+  ) {
+    return
+  }
+  imageSrc.value = `https://pximg.cocomi.eu.org/_pid_/${imageViewer.value.info.id}_${imageViewer.value.info.part}_o`
+  imageViewer.value.info.images.o = imageSrc.value
+  loadingImage.value = false
+}
 
 function preloadNearbyImage(index: number) {
   if (index - 1 >= 0) {

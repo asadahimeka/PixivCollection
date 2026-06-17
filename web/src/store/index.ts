@@ -125,7 +125,6 @@ export const useStore = defineStore('main', {
           if (term !== '' && !getSearchStr(image).includes(term.toLowerCase())) {
             return false
           }
-          return true
         }
         if (this.filterConfig.bookmark.enable) {
           if (this.filterConfig.bookmark.min === -1) {
