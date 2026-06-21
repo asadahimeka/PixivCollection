@@ -18,22 +18,41 @@ async function main(type) {
   await fs.ensureDir(join(config.download.path, 'bookmark_ugoira'))
 
   const imgDir = await fs.readdir(imgDirPath)
+  const fileDetails = []
   for (const item of imgDir) {
+    const itemPath = join(imgDirPath, item)
     if (/\.(jpg|jpeg|png|gif)$/i.test(item)) {
-      type != 'avif' ? compress(join(imgDirPath, item)) : compressToAvif(join(imgDirPath, item))
+      type != 'avif' ? compress(itemPath) : compressToAvif(itemPath)
+    }
+    if (item.endsWith('.zip')) {
+      await convertUgoira(itemPath)
     }
 
-    if (item.endsWith('.zip')) {
-      await convertUgoira(join(imgDirPath, item))
-    }
+    const stats = await fs.stat(itemPath).catch(() => null)
+    stats && fileDetails.push({
+      name: item,
+      path: itemPath,
+      mtime: stats.mtimeMs
+    });
   }
 
   if (imgErrList.length) {
+    console.log('Image Compress Error:', imgErrList)
     await fs.writeJSON(join(imgDirPath, '../img_err_list.json'), imgErrList)
   }
   if (ugoiraErrList.length) {
+    console.log('Ugoira Convert Error:', ugoiraErrList)
     await fs.writeJSON(join(imgDirPath, '../ugoira_err_list.json'), ugoiraErrList)
   }
+
+  if (fileDetails.length <= 50) return
+  fileDetails.sort((a, b) => b.mtime - a.mtime)
+  const filesToDelete = fileDetails.filter(e => !imgErrList.includes(e.path) && !ugoiraErrList.includes(e.path)).slice(50)
+  for (const file of filesToDelete) {
+    await fs.remove(file.path).catch(() => {})
+  }
+
+  // await fs.emptydir(imgDirPath)
 }
 
 /**
@@ -71,7 +90,7 @@ function compressToAvif(inputFilePath) {
 
   // 使用 sharp 进行转换
   sharp(inputFilePath)
-    .toFormat('avif')
+    .avif({ quality: 80, lossless: false })
     .toFile(outputFilePath, (err, info) => {
       if (err) {
         console.error('Error converting image:', inputFilePath, err)
@@ -91,7 +110,7 @@ async function convertUgoira(inputFilePath) {
     const id = filename.match(/\((\d+)\)/)[1]
     const ugoiraDir = join(imgDirPath, '../bookmark_ugoira')
     const unzipDir = join(ugoiraDir, id)
-    const outputFilePath = join(ugoiraDir, filename.replace('.zip', argv[3] == 'avif' ? '.avif' : '.mp4'))
+    const outputFilePath = join(ugoiraDir, filename.replace(/@\d+ms\.zip/, '.zip').replace('.zip', argv[3] == 'avif' ? '.avif' : '.mp4'))
 
     if (fs.existsSync(outputFilePath)) return
 
@@ -103,13 +122,20 @@ async function convertUgoira(inputFilePath) {
     zip.extractAllTo(unzipDir, true)
     // await fs.copyFile(inputFilePath, join(ugoiraDir, filename))
 
-    // eslint-disable-next-line no-undef
-    const res = await fetch(`https://hibiapi.cocomi.eu.org/api/pixiv-web-api/illustUgoiraMeta?args=[${id}]`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36' }
-    }).catch(() => null)
-
     const { input, rate } = await (async () => {
-      let input
+      const match = filename.match(/@(\d+)ms\.zip/)
+      if (match && match[1]) {
+        return {
+          input: join(unzipDir, '%06d.jpg'),
+          rate: match[1]
+        }
+      }
+
+      // eslint-disable-next-line no-undef
+      const res = await fetch(`https://api.cocomi.eu.org/api/pixiv-web-api/illustUgoiraMeta?args=[${id}]`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36' }
+      }).catch(() => null)
+
       if (res && res.ok) {
         const metadata = await res.json()
         if (metadata) {
@@ -120,17 +146,18 @@ async function convertUgoira(inputFilePath) {
           }
           // Fix ffmpeg concat demuxer issue. This will increase the frame count, but will fix the last frame timestamp issue.
           ffconcat += 'file ' + metadata.frames[metadata.frames.length - 1].file + '\n'
-          input = join(unzipDir, 'ffconcat.txt')
+          const input = join(unzipDir, 'ffconcat.txt')
           await fs.writeFile(input, ffconcat)
           return { input }
         }
       }
-      input = join(unzipDir, '%06d.jpg')
-      const len = (await fs.readdir(unzipDir)).length
-      const totalMs = len * 40
+
+      // const len = (await fs.readdir(unzipDir)).length
+      // const totalMs = len * 40
       return {
         input: join(unzipDir, '%06d.jpg'),
-        rate: len / totalMs * 1000
+        //rate: len / totalMs * 1000,
+        rate: 20
       }
     })()
 

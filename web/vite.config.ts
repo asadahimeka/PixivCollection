@@ -12,12 +12,33 @@ export default defineConfig({
   },
   base: './',
   server: {
-    port: 8080,
+    port: 3621,
   },
   // build: {
   //   copyPublicDir: false,
   // },
   plugins: [
+    {
+      name: 'inject-analytics',
+      transformIndexHtml(html, { server }) {
+        if (server) { return html }
+        return {
+          html,
+          tags: [
+            {
+              tag: 'script',
+              attrs: {
+                'async': true,
+                'defer': true,
+                'data-website-id': 'ada7855c-2e95-4286-8b1c-240c67c79a94',
+                'src': 'https://um.nanoka.top/script.js',
+              },
+              injectTo: 'head',
+            },
+          ],
+        }
+      },
+    },
     vue(),
     AutoImport({
       imports: ['vue', 'vue-router'],

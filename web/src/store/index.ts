@@ -1,8 +1,17 @@
 import { Settings } from '@orilight/vue-settings'
 import { useFullscreen, usePreferredColorScheme } from '@vueuse/core'
 import { defineStore } from 'pinia'
+import { invoke } from '@tauri-apps/api/tauri'
 
 import { getImageLargeSrc } from '@/utils'
+
+export interface QueryResult {
+  images: Image[]
+  total: number
+  illust_count: number | null
+  author_count: number | null
+  tag_count: number | null
+}
 
 const w = window as any
 export const useStore = defineStore('main', {
@@ -55,8 +64,6 @@ export const useStore = defineStore('main', {
       imageSortBy: 'id_desc' as 'id_desc' | 'id_asc' | 'bookmark_desc',
       useLocalImage: true,
       useFancybox: false,
-      sliceLocalImages: true,
-      loadImagesJsonByLocalHttp: true,
       loadImageByLocalHttp: false,
     },
     filterConfig: {
@@ -93,7 +100,7 @@ export const useStore = defineStore('main', {
       },
       restrict: {
         maxSanityLevel: 6,
-        r18: 'hidden' as 'hidden' | 'show' | 'only',
+        r18: 'show' as 'hidden' | 'show' | 'only',
       },
     },
   }),
@@ -108,144 +115,54 @@ export const useStore = defineStore('main', {
       }
       return this.preferColorScheme
     },
-    imageFilter() {
-      return (image: Image) => {
-        // 过滤_不健全度
-        if (this.filterConfig.restrict.r18 === 'hidden') {
-          if (image.x_restrict >= 1) { return false }
-        } else if (this.filterConfig.restrict.r18 === 'only') {
-          if (image.x_restrict < 1) { return false }
-        }
-        if (this.filterConfig.restrict.maxSanityLevel) {
-          if (image.sanity_level > this.filterConfig.restrict.maxSanityLevel) { return false }
-        }
-        // 搜索
-        if (this.filterConfig.search.enable) {
-          const term = this.filterConfig.search.value.trim()
-          if (term !== '' && !getSearchStr(image).includes(term.toLowerCase())) {
-            return false
-          }
-        }
-        if (this.filterConfig.bookmark.enable) {
-          if (this.filterConfig.bookmark.min === -1) {
-            if (image.bookmark !== -1) { return false }
-          }
-          if (image.bookmark < this.filterConfig.bookmark.min) { return false }
-        }
-        // 过滤_年份
-        if (this.filterConfig.year.enable) {
-          const year = Number(image.created_at.split('-')[0])
-          if (this.filterConfig.year.value === 1) {
-            if (year > 2000) { return false }
-          } else if (year !== this.filterConfig.year.value) {
-            return false
-          }
-        }
-        // 过滤_作者
-        if (this.filterConfig.author.enable) {
-          if (image.author.id !== this.filterConfig.author.id) { return false }
-        }
-        // 过滤_标签
-        if (this.filterConfig.tag.enable) {
-          if ((image.tags.find(tag => {
-            if (tag.name === this.filterConfig.tag.name) { return tag }
-            return undefined
-          })) === undefined) { return false }
-        }
-        // 过滤_形状
-        if (this.filterConfig.shape.enable) {
-          if (this.filterConfig.shape.value.startsWith('ratio-')) {
-            const _ratioStr = this.filterConfig.shape.value.substring(6).split(':').map(str => Number(str))
-            const ratio = _ratioStr[0] / _ratioStr[1]
-            if (image.size[0] / image.size[1] >= ratio / 0.9 || image.size[0] / image.size[1] <= ratio * 0.9) { return false }
-          } else if (image.size[0] / image.size[1] < 0.9 || image.size[0] / image.size[1] > 1.1) {
-            if (this.filterConfig.shape.value === 'square') { return false }
-            if (image.size[0] > image.size[1]) {
-              if (this.filterConfig.shape.value === 'vertical') { return false }
-            } else {
-              if (this.filterConfig.shape.value === 'horizontal') { return false }
-            }
-          } else {
-            if (this.filterConfig.shape.value === 'vertical' || this.filterConfig.shape.value === 'horizontal') { return false }
-          }
-        }
-        // 过滤_尺寸
-        if (this.filterConfig.size.enable) {
-          const { max: wMax, min: wMin } = this.filterConfig.size.width
-          if (wMax) {
-            if (image.size[0] > wMax) { return false }
-          }
-          if (wMin) {
-            if (image.size[0] < wMin) { return false }
-          }
-          const { max: hMax, min: hMin } = this.filterConfig.size.height
-          if (hMax) {
-            if (image.size[1] > hMax) { return false }
-          }
-          if (hMin) {
-            if (image.size[1] < hMin) { return false }
-          }
-        }
-        return true
-      }
-    },
   },
   actions: {
-    updateFullCounts() {
-      this.fullCounts.total = w.__fullImages__.length
-      this.fullCounts.illustCount = new Set(w.__fullImages__.map((i: Image) => i.id)).size
-      this.fullCounts.authorCount = new Set(w.__fullImages__.map((i: Image) => i.author.id)).size
-      this.fullCounts.tagCount = new Set(w.__fullImages__.flatMap((i: Image) => i.tags.map(t => t.name))).size
-    },
-    updateFilteredCounts() {
-      this.filteredCounts.total = w.__filteredImages__.length
-      this.filteredCounts.illustCount = new Set(w.__filteredImages__.map((i: Image) => i.id)).size
-      this.filteredCounts.authorCount = new Set(w.__filteredImages__.map((i: Image) => i.author.id)).size
-      this.filteredCounts.tagCount = new Set(w.__filteredImages__.flatMap((i: Image) => i.tags.map(t => t.name))).size
-    },
-    loadFilteredImages() {
-      const res: Image[] = []
-      const fullList = w.__fullImages__
-      const len = fullList.length
-      for (let i = 0; i < len; i++) {
-        const item = fullList[i]
-        if (this.imageFilter(item)) { res.push(item) }
-      }
-      this.imagesFiltered = res
-    },
-    loadImagesByPage(isFirstLoad = false) {
+    async loadImagesByPage(isFirstLoad = false) {
       if (isFirstLoad) {
-        w.__filteredImages__ = w.__fullImages__
-        this.updateFilteredCounts()
-      } else if (this.curPageCursor == 0) {
-        const res: Image[] = []
-        const fullList = w.__fullImages__
-        const len = fullList.length
-        for (let i = 0; i < len; i++) {
-          const item = fullList[i]
-          if (this.imageFilter(item)) { res.push(item) }
-        }
-        w.__filteredImages__ = res
-        this.updateFilteredCounts()
+        this.curPageCursor = 0
+        this.loadEnd = false
+        this.imagesFiltered = []
       }
-      if (w.__filteredImages__.length == this.imagesFiltered.length) {
-        this.loadEnd = true
-        return
+      const query = this.buildFilterQuery()
+      query.offset = this.curPageCursor
+      query.limit = 60
+      query.sort_by = this.masonryConfig.imageSortBy
+      query.include_counts = isFirstLoad || this.curPageCursor === 0
+      const result = await invoke<any>('query_images', {
+        query,
+      })
+      // Transform flat Rust fields → frontend nested format
+      const images: Image[] = result.images.map((img: any) => ({
+        id: img.id,
+        part: img.part,
+        len: img.len,
+        title: img.title,
+        ext: img.ext,
+        size: [img.width, img.height] as [number, number],
+        author: { id: img.author_id, name: img.author_name, account: img.author_account },
+        tags: img.tags ?? [],
+        created_at: img.created_at,
+        sanity_level: img.sanity_level,
+        x_restrict: img.x_restrict,
+        dominant_color: '',
+        bookmark: img.bookmark,
+        view: img.view,
+        images: { s: img.img_s, m: img.img_m, l: img.img_l, o: img.img_o },
+        isAI: img.is_ai,
+      }))
+      if (isFirstLoad) {
+        this.imagesFiltered = images
+      } else {
+        this.imagesFiltered = this.imagesFiltered.concat(images)
       }
-      this.loadEnd = false
-      let res: any[] = w.__filteredImages__.slice(this.curPageCursor, this.curPageCursor + 30)
-      const lastEl = res[res.length - 1]
-      if (lastEl.len > 1) {
-        const newLen = this.imagesFiltered.length + res.length
-        res = res.concat(
-          w.__filteredImages__.slice(
-            newLen,
-            newLen + lastEl.len - lastEl.part - 1,
-          ),
-        )
+      this.curPageCursor += result.images.length
+      this.loadEnd = result.images.length < (query.limit ?? 60)
+      this.filteredCounts.total = result.total
+      if (result.illust_count !== null) {
+        this.filteredCounts.illustCount = result.illust_count ?? 0
+        this.filteredCounts.authorCount = result.author_count ?? 0
+        this.filteredCounts.tagCount = result.tag_count ?? 0
       }
-      this.imagesFiltered = this.imagesFiltered.concat(res)
-      this.curPageCursor += res.length
     },
     openImageViewer(image: Image, prev: () => void, next: () => void, index: number): void {
       this.imageViewer.show = true
@@ -257,7 +174,7 @@ export const useStore = defineStore('main', {
     closeImageViewer(): void {
       this.imageViewer.show = false
     },
-    updateSeatchValue(value: string): void {
+    updateSearchValue(value: string): void {
       this.filterConfig.search.value = value
     },
     toggleColorScheme(): void {
@@ -281,7 +198,7 @@ export const useStore = defineStore('main', {
     },
     toggleSearch(): void {
       if (this.filterConfig.search.enable) {
-        this.updateSeatchValue('')
+        this.updateSearchValue('')
       }
       this.filterConfig.search.enable = !this.filterConfig.search.enable
     },
@@ -330,36 +247,41 @@ export const useStore = defineStore('main', {
         )
       }
     },
-    sortImages(): void {
-      w.__fullImages__.sort((a: Image, b: Image) => {
-        if (a.id === b.id) { return a.part - b.part }
-        if (this.masonryConfig.imageSortBy === 'bookmark_desc') { return b.bookmark - a.bookmark }
-        if (this.masonryConfig.imageSortBy === 'id_desc') { return b.id - a.id }
-        return (a.id - b.id)
-      })
-      if (this.masonryConfig.sliceLocalImages) {
-        this.curPageCursor = 0
-        this.loadEnd = false
-        this.imagesFiltered = []
-        this.loadImagesByPage()
-      } else {
-        this.loadFilteredImages()
+    async sortImages() {
+      this.curPageCursor = 0
+      this.loadEnd = false
+      this.imagesFiltered = []
+      await this.loadImagesByPage(true)
+    },
+    buildFilterQuery(): Record<string, any> {
+      const q: Record<string, any> = {}
+      if (this.filterConfig.search.enable && this.filterConfig.search.value) {
+        q.search = this.filterConfig.search.value
       }
+      if (this.filterConfig.year.enable && this.filterConfig.year.value) {
+        q.year = this.filterConfig.year.value
+      }
+      if (this.filterConfig.tag.enable && this.filterConfig.tag.name) {
+        q.tag = this.filterConfig.tag.name
+      }
+      if (this.filterConfig.author.enable && this.filterConfig.author.id !== -1) {
+        q.author_id = this.filterConfig.author.id
+      }
+      if (this.filterConfig.shape.enable && this.filterConfig.shape.value) {
+        q.shape = this.filterConfig.shape.value
+      }
+      if (this.filterConfig.size.enable) {
+        if (this.filterConfig.size.width.min !== null) { q.width_min = this.filterConfig.size.width.min }
+        if (this.filterConfig.size.width.max !== null) { q.width_max = this.filterConfig.size.width.max }
+        if (this.filterConfig.size.height.min !== null) { q.height_min = this.filterConfig.size.height.min }
+        if (this.filterConfig.size.height.max !== null) { q.height_max = this.filterConfig.size.height.max }
+      }
+      if (this.filterConfig.bookmark.enable) {
+        q.bookmark_min = this.filterConfig.bookmark.min
+      }
+      q.r18 = this.filterConfig.restrict.r18
+      q.max_sanity_level = this.filterConfig.restrict.maxSanityLevel
+      return q
     },
   },
 })
-
-function getSearchStr(image: Image) {
-  return (
-    image.id
-    + image.title
-    + image.author.id
-    + image.author.name
-    + image.tags
-      .map(
-        tag => tag.translated_name
-          ? tag.name + tag.translated_name
-          : tag.name,
-      ).join()
-  ).toLowerCase()
-}

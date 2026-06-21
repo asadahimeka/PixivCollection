@@ -41,7 +41,7 @@ const HASH_SECRET = '28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const isUseProxy = true
+const isUseProxy = false
 function callApi(url, options, retry = 2) {
   let finalUrl = /^https?:\/\//i.test(url) ? url : BASE_URL + url
   const fUrl = new URL(finalUrl)
@@ -54,6 +54,7 @@ function callApi(url, options, retry = 2) {
     }
     fUrl.hostname = 'hibiapi.cocomi.eu.org'
     finalUrl = fUrl.href
+    console.log('Proxying:', finalUrl)
   }
 
   return axios(finalUrl, options)

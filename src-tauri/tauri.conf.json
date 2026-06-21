@@ -2,20 +2,20 @@
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "package": {
     "productName": "PixivCollection",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "build": {
     "distDir": "../web/dist",
-    "devPath": "http://localhost:8080",
+    "devPath": "http://localhost:3621",
     "beforeDevCommand": "cd web && npm run dev",
     "beforeBuildCommand": "cd web && npm run build",
     "withGlobalTauri": true
   },
   "tauri": {
     "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "top.nanoka.pixivcollection",
+      "active": false,
+      "targets": "msi",
+      "identifier": "top.nanoka.pixivcollection.dev",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",

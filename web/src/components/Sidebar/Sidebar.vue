@@ -102,34 +102,36 @@
       <SidebarHead>图片筛选</SidebarHead>
       <SidebarBlock>
         <table class="w-full text-xs" style="border: 0;">
-          <tr>
-            <td></td>
-            <td><b>图片</b></td>
-            <td><b>作品</b></td>
-            <td><b>作者</b></td>
-            <td><b>标签</b></td>
-          </tr>
-          <tr>
-            <td><b>总计</b></td>
-            <td>{{ store.fullCounts.total }}</td>
-            <td>{{ store.fullCounts.illustCount }}</td>
-            <td>{{ store.fullCounts.authorCount }}</td>
-            <td>{{ store.fullCounts.tagCount }}</td>
-          </tr>
-          <tr>
-            <td><b>筛选</b></td>
-            <td>{{ store.filteredCounts.total }}</td>
-            <td>{{ store.filteredCounts.illustCount }}</td>
-            <td>{{ store.filteredCounts.authorCount }}</td>
-            <td>{{ store.filteredCounts.tagCount }}</td>
-          </tr>
-          <tr>
-            <td><b>展示</b></td>
-            <td>{{ store.imagesFiltered.length }}</td>
-            <td>{{ illustCount }}</td>
-            <td>{{ authorCount }}</td>
-            <td>{{ tagCount }}</td>
-          </tr>
+          <tbody>
+            <tr>
+              <td></td>
+              <td><b>图片</b></td>
+              <td><b>作品</b></td>
+              <td><b>作者</b></td>
+              <td><b>标签</b></td>
+            </tr>
+            <tr>
+              <td><b>总计</b></td>
+              <td>{{ store.fullCounts.total }}</td>
+              <td>{{ store.fullCounts.illustCount }}</td>
+              <td>{{ store.fullCounts.authorCount }}</td>
+              <td>{{ store.fullCounts.tagCount }}</td>
+            </tr>
+            <tr>
+              <td><b>筛选</b></td>
+              <td>{{ store.filteredCounts.total }}</td>
+              <td>{{ store.filteredCounts.illustCount }}</td>
+              <td>{{ store.filteredCounts.authorCount }}</td>
+              <td>{{ store.filteredCounts.tagCount }}</td>
+            </tr>
+            <tr>
+              <td><b>展示</b></td>
+              <td>{{ store.imagesFiltered.length }}</td>
+              <td>{{ illustCount }}</td>
+              <td>{{ authorCount }}</td>
+              <td>{{ tagCount }}</td>
+            </tr>
+          </tbody>
         </table>
       </SidebarBlock>
       <SidebarBlock>
@@ -317,7 +319,7 @@
             mask: !showFullTags && tags.length > 10 && searchTag === '',
           }"
         >
-          <div v-if="searchAuthor !== '' && filteredAuthors.length === 0" class="text-center text-gray-400">
+          <div v-if="searchTag !== '' && filteredTags.length === 0" class="text-center text-gray-400">
             未搜索到结果
           </div>
           <button
@@ -363,29 +365,14 @@
         <div class="flex items-center">
           显示卡片阴影<Switch v-model="masonryConfig.showShadow" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
+        <div class="flex items-center">
           使用本地图片<Switch v-model="masonryConfig.useLocalImage" class="ml-3" />
         </div>
         <div class="flex items-center">
           使用 Fancybox 查看大图<Switch v-model="masonryConfig.useFancybox" class="ml-3" />
         </div>
-        <div v-if="isTauri" class="flex items-center">
-          使用本地 HTTP 服务加载图片列表<Switch v-model="masonryConfig.loadImagesJsonByLocalHttp" class="ml-3" />
-        </div>
-        <div v-if="isTauri" class="flex items-center">
+        <div class="flex items-center">
           使用本地 HTTP 服务加载图片<Switch v-model="masonryConfig.loadImageByLocalHttp" class="ml-3" />
-        </div>
-        <div v-if="isTauri" class="flex items-center">
-          分页加载本地图片数据<Switch v-model="masonryConfig.sliceLocalImages" class="ml-3" />
-        </div>
-        <div class="my-1" title="如果设置了用户 ID 的话则不读取本地图片数据">
-          设置用户 ID
-          <input
-            v-model="userId"
-            class="mx-1 max-w-[200px] rounded-md border px-1 py-0.5 leading-[22px] transition-colors hover:border-blue-500 dark:border-white/40 dark:bg-[#1a1a1a]"
-            placeholder="如果设置了用户 ID 的话则不读取本地图片数据"
-          >
-          <CButton class="ml-1" @click="saveReload">保存</CButton>
         </div>
         <div class="mt-1">
           <CButton class="mb-1" @click="clearLocalSettings">
@@ -404,18 +391,12 @@
 </template>
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/tauri'
 import { FILTER_BOOKMARKS, FILTER_SHAPES, LINK_GITHUB, MASONRY_IMAGE_GAP_LIST, MASONRY_IMAGE_SIZE_LIST, MASONRY_MAX_COLUMNS } from '@/config'
 import { useStore } from '@/store'
 import { exportFile } from '@/utils'
 
-const w = (window as any)
-const isTauri = !!w.__TAURI__
-const { __CONFIG__ } = w
-const userId = ref(__CONFIG__.userId)
-const saveReload = () => {
-  localStorage.setItem('__PXCT_USER_ID', userId.value)
-  location.reload()
-}
+const __CONFIG__ = (window as any).__CONFIG__
 
 const store = useStore()
 const {
@@ -459,68 +440,38 @@ const filteredTags = computed(() => {
   }
 })
 
-watch(
-  () => store.fullCounts.tagCount,
-  () => getFilters(),
-  // { immediate: true },
-)
-
-function getFilters() {
-  const _years: number[] = []
-  const _tags: { [index: string]: TagData } = {}
-  const _authors: { [index: string]: AuthorData } = {}
-
-  const fullList = w.__fullImages__
-  const len = fullList.length
-  for (let i = 0; i < len; i++) {
-    const image = fullList[i] as Image
-
-    // 统计年份
-    const year = Number(image.created_at.split('-')[0])
-    if (!_years.includes(year) && year > 2000) { _years.push(year) }
-
-    // 过滤年份
-    if (filterConfig.value.year.enable) {
-      if (filterConfig.value.year.value === 1) {
-        if (year > 2000) { continue }
-      } else if (year !== filterConfig.value.year.value) {
-        continue
-      }
-    }
-
-    // 过滤 R18
-    if (filterConfig.value.restrict.r18 === 'hidden') {
-      if (image.x_restrict >= 1) { continue }
-    } else if (filterConfig.value.restrict.r18 === 'only') {
-      if (image.x_restrict < 1) { continue }
-    }
-
-    // 过滤不健全度
-    if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { continue }
-
-    // 计算作者数据
-    const { author } = image
-    if (Object.hasOwn(_authors, author.id)) { _authors[author.id].count++ } else { _authors[author.id] = { ...author, count: 1 } }
-
-    // 计算标签数据
-    image.tags.forEach(tag => {
-      if (filterConfig.value.author.enable) {
-        if (image.author.id !== filterConfig.value.author.id) { return }
-      }
-      if (image.sanity_level > filterConfig.value.restrict.maxSanityLevel) { return }
-      if (Object.hasOwn(_tags, tag.name)) { _tags[tag.name].count++ } else { _tags[tag.name] = { ...tag, count: 1 } }
-    })
+// Re-fetch filter options when DB becomes ready (fullCounts.total changes from >0)
+// Sidebar mounts before App's init() runs, so a watch is needed instead of onMounted.
+watch(() => store.fullCounts.total, newVal => {
+  if (newVal > 0) {
+    getFilters()
   }
+})
 
-  years.value = _years.sort((a, b) => b - a)
-  tags.value = Object.keys(_tags)
-    .map(tagName => _tags[tagName])
-    .filter(tag => !tag.name.includes('users入り') || filterConfig.value.tag.includeBookmark)
-    .filter(tag => tag.count >= filterConfig.value.tag.includeRatherThan)
-    .sort((a, b) => b.count - a.count)
-  authors.value = Object.keys(_authors)
-    .map(authorId => _authors[authorId])
-    .sort((a, b) => b.count - a.count)
+// Toggling loadImageByLocalHttp changes the image URL scheme entirely
+// (http://localhost:32154 vs convertFileSrc / remote proxy).
+// Refresh the page to apply consistently — the check & server start happen in App.init().
+nextTick(() => {
+  watch(() => masonryConfig.value.loadImageByLocalHttp, () => {
+    location.reload()
+  })
+})
+
+interface FilterOptions {
+  years: { year: number; count: number }[]
+  authors: { id: number; name: string; account: string; count: number }[]
+  tags: { name: string; translated_name: string | null; count: number }[]
+}
+
+async function getFilters() {
+  try {
+    const result = await invoke<FilterOptions>('get_filter_options')
+    years.value = result.years.map((y: any) => y.year)
+    authors.value = result.authors
+    tags.value = result.tags
+  } catch (e) {
+    console.error('get_filter_options failed:', e)
+  }
 }
 
 function handleClickYear(year: number) {
@@ -582,26 +533,30 @@ function openGithub() {
   window.open(LINK_GITHUB, '_blank')
 }
 
-function loadDataFromFile() {
+async function loadDataFromFile() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'application/json'
-  input.onchange = e => {
+  input.onchange = async e => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = e => {
-        const data = JSON.parse(e.target?.result as string)
-        w.__fullImages__ = data
-        store.updateFullCounts()
-        if (store.masonryConfig.sliceLocalImages) {
-          store.curPageCursor = 0
-          store.loadImagesByPage()
-        } else {
-          store.imagesFiltered = data
-        }
+      try {
+        const text = await file.text()
+        const result = await invoke<{ imported: number; skipped: number }>('import_json_to_db', {
+          imgDir: __CONFIG__.imgDir,
+          jsonContent: text,
+        })
+        alert(`已导入 ${result.imported} 条，跳过 ${result.skipped} 条重复`)
+        // Refresh gallery and sidebar
+        store.curPageCursor = 0
+        store.loadEnd = false
+        store.imagesFiltered = []
+        await store.loadImagesByPage(true)
+        await getFilters()
+      } catch (err) {
+        console.error('Import failed:', err)
+        alert(`导入失败: ${err}`)
       }
-      reader.readAsText(file)
     }
   }
   input.click()

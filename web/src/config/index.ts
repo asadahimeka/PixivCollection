@@ -2,14 +2,6 @@ export const LINK_GITHUB = 'https://github.com/asadahimeka/PixivCollection'
 export const LINK_PIXIV_ARTWORK = 'https://www.pixiv.net/artworks/{id}'
 export const LINK_PIXIV_USER = 'https://www.pixiv.net/users/{id}'
 
-export const DATA_FILE = './images.json'
-
-export const IMAGE_PATH_ORIGINAL = './image/original/'
-export const IMAGE_PATH_PREVIEW = './image/preview/'
-export const IMAGE_PATH_THUMBNAIL = './image/thumbnail/'
-export const IMAGE_FORMAT_PREVIEW = 'webp'
-export const IMAGE_FORMAT_THUMBNAIL = 'webp'
-
 export const MASONRY_MIN_COLUMNS = 2
 export const MASONRY_MAX_COLUMNS = 10
 export const MASONRY_RENDER_RANGE = {

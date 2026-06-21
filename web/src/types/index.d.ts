@@ -19,7 +19,6 @@ declare global {
     dominant_color: string
     bookmark: number
     view: number
-    searchStr?: string
     images: Record<string, string>
     isAI?: boolean
   }

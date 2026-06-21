@@ -22,6 +22,7 @@ tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-works
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 warp = { version = "0.3", features = ["compression"] }
 tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [features]
 # by default Tauri runs in production mode
