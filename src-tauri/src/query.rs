@@ -39,8 +39,6 @@ pub struct ImageQuery {
     /// `"hidden"` (hide R18), `"only"` (R18 only), or `"show"` (no filter).
     pub r18: Option<String>,
     pub max_sanity_level: Option<i64>,
-    /// When true the caller should also fetch the extra count aggregates.
-    pub include_counts: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -81,14 +79,20 @@ pub struct ImageRow {
     pub tags: Vec<ImageTag>,
 }
 
-/// Paginated query result with optional aggregate counts.
+/// Paginated query result.
 #[derive(Debug, Serialize)]
 pub struct QueryResult {
     pub images: Vec<ImageRow>,
     pub total: i64,
-    pub illust_count: Option<i64>,
-    pub author_count: Option<i64>,
-    pub tag_count: Option<i64>,
+}
+
+/// Aggregate counts result returned by the `query_image_counts` command.
+#[derive(Debug, Serialize)]
+pub struct CountsResult {
+    pub total: i64,
+    pub illust_count: i64,
+    pub author_count: i64,
+    pub tag_count: i64,
 }
 
 /// Grouped filter options (years / authors / tags) for the filter sidebar.
@@ -227,15 +231,18 @@ impl ImageQuery {
             }
         }
 
-        // ---- Year ----
+        // ---- Year (range comparison for index usage) ----
         if let Some(y) = self.year {
             if y == 1 {
-                sql.push_str(" AND CAST(substr(i.created_at,1,4) AS INTEGER) < 2000");
+                sql.push_str(" AND i.created_at < '2000-01-01'");
             } else if y > 1 {
-                let n = push_param(&mut pi, &mut params, y);
+                let year_start = format!("{}-01-01", y);
+                let year_end = format!("{}-01-01", y + 1);
+                let n1 = push_param(&mut pi, &mut params, year_start);
+                let n2 = push_param(&mut pi, &mut params, year_end);
                 sql.push_str(&format!(
-                    " AND CAST(substr(i.created_at,1,4) AS INTEGER) = ?{}",
-                    n,
+                    " AND i.created_at >= ?{} AND i.created_at < ?{}",
+                    n1, n2,
                 ));
             }
         }

@@ -2,7 +2,8 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use rusqlite::{params, Connection, Transaction};
 
-static DB: OnceLock<Mutex<Connection>> = OnceLock::new();
+static DB_READER: OnceLock<Mutex<Connection>> = OnceLock::new();
+static DB_WRITER: OnceLock<Mutex<Connection>> = OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EnsureDbResult {
@@ -70,6 +71,7 @@ fn create_indexes(conn: &Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at);
          CREATE INDEX IF NOT EXISTS idx_images_size ON images(width, height);
          CREATE INDEX IF NOT EXISTS idx_images_is_ai ON images(is_ai);
+         CREATE INDEX IF NOT EXISTS idx_images_sanity_level ON images(sanity_level);
          CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
          CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags(image_id, image_part);
          CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);",
@@ -81,26 +83,56 @@ fn create_indexes(conn: &Connection) -> Result<(), String> {
 /// Opens or creates the SQLite file at `db_path`, enables WAL mode
 /// and foreign keys, then creates all tables if they don't exist.
 pub fn init_db(db_path: &str) -> Result<(), String> {
-    let conn = Connection::open(db_path).map_err(|e| format!("Failed to open database: {e}"))?;
+    let reader = Connection::open(db_path).map_err(|e| format!("Failed to open database: {e}"))?;
 
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
+    reader
+        .execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
         .map_err(|e| format!("Failed to set pragmas: {e}"))?;
 
-    create_schema(&conn)?;
+    create_schema(&reader)?;
 
-    DB.set(Mutex::new(conn))
-        .map_err(|_| "Database already initialized".to_string())?;
+    let writer =
+        Connection::open(db_path).map_err(|e| format!("Failed to open database writer: {e}"))?;
+
+    writer
+        .execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
+        .map_err(|e| format!("Failed to set pragmas on writer: {e}"))?;
+
+    DB_READER
+        .set(Mutex::new(reader))
+        .map_err(|_| "Database reader already initialized".to_string())?;
+
+    DB_WRITER
+        .set(Mutex::new(writer))
+        .map_err(|_| "Database writer already initialized".to_string())?;
 
     Ok(())
 }
 
-/// Get a locked reference to the global database connection.
+/// Get a locked reference to the global read-only database connection.
 /// Returns an error if `init_db` has not been called yet.
-pub fn get_conn() -> Result<MutexGuard<'static, Connection>, String> {
-    DB.get()
-        .ok_or_else(|| "Database not initialized".to_string())?
+pub fn get_reader() -> Result<MutexGuard<'static, Connection>, String> {
+    DB_READER
+        .get()
+        .ok_or_else(|| "Database reader not initialized".to_string())?
         .lock()
-        .map_err(|e| format!("Failed to lock database mutex: {e}"))
+        .map_err(|e| format!("Failed to lock reader mutex: {e}"))
+}
+
+/// Get a locked reference to the global read-write database connection.
+/// Returns an error if `init_db` has not been called yet.
+pub fn get_writer() -> Result<MutexGuard<'static, Connection>, String> {
+    DB_WRITER
+        .get()
+        .ok_or_else(|| "Database writer not initialized".to_string())?
+        .lock()
+        .map_err(|e| format!("Failed to lock writer mutex: {e}"))
+}
+
+/// Backward-compatible alias for `get_reader()`.
+/// Use this for read operations — existing call sites unchanged.
+pub fn get_conn() -> Result<MutexGuard<'static, Connection>, String> {
+    get_reader()
 }
 
 /// Core insert logic shared by `ensure_db` and `import_json_to_db_logic`.
@@ -157,9 +189,26 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                          ?14, ?15, ?16, \
                          ?17, ?18, ?19, ?20)",
                 params![
-                    id, part, len, title, width, height, ext, author_id, author_name,
-                    author_account, bookmark, view, created_at, sanity_level, x_restrict, is_ai,
-                    img_s, img_m, img_l, img_o,
+                    id,
+                    part,
+                    len,
+                    title,
+                    width,
+                    height,
+                    ext,
+                    author_id,
+                    author_name,
+                    author_account,
+                    bookmark,
+                    view,
+                    created_at,
+                    sanity_level,
+                    x_restrict,
+                    is_ai,
+                    img_s,
+                    img_m,
+                    img_l,
+                    img_o,
                 ],
             )
             .map_err(|e| format!("Failed to insert image {id} p{part}: {e}"))?;
@@ -184,9 +233,11 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                 .map_err(|e| format!("Failed to insert tag '{name}': {e}"))?;
 
                 let tag_id: i64 = tx
-                    .query_row("SELECT id FROM tags WHERE name = ?1", params![name], |row| {
-                        row.get(0)
-                    })
+                    .query_row(
+                        "SELECT id FROM tags WHERE name = ?1",
+                        params![name],
+                        |row| row.get(0),
+                    )
                     .map_err(|e| format!("Failed to get tag id for '{name}': {e}"))?;
 
                 tx.execute(
@@ -195,9 +246,7 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                     params![id, part, tag_id],
                 )
                 .map_err(|e| {
-                    format!(
-                        "Failed to insert image_tag for {id} p{part} tag '{name}': {e}"
-                    )
+                    format!("Failed to insert image_tag for {id} p{part} tag '{name}': {e}")
                 })?;
             }
         }
@@ -220,11 +269,12 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
     let data_dir = format!("{img_dir}/data");
     let db_path = format!("{data_dir}/images.db");
     if !std::path::Path::new(&data_dir).exists() {
-        std::fs::create_dir_all(&data_dir).map_err(|e| format!("Failed to create data dir: {e}"))?;
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| format!("Failed to create data dir: {e}"))?;
     }
     let db_exists = std::path::Path::new(&db_path).exists();
 
-    if DB.get().is_none() {
+    if DB_READER.get().is_none() {
         init_db(&db_path)?;
     }
 
@@ -256,6 +306,14 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
             };
 
             if !needs_reimport {
+                // Migration: idempotent, ensures existing DBs get new indexes + ANALYZE
+                let writer = get_writer()?;
+                create_indexes(&writer)?;
+                writer
+                    .execute_batch("ANALYZE;")
+                    .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
+                drop(writer);
+
                 let imported: i64 = conn
                     .query_row("SELECT COUNT(*) FROM images", [], |row| row.get(0))
                     .map_err(|e| format!("Failed to count images: {e}"))?;
@@ -278,10 +336,10 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
             imported: 0,
         });
     }
-    let json_content =
-        std::fs::read_to_string(&json_path).map_err(|e| format!("Failed to read images.json: {e}"))?;
+    let json_content = std::fs::read_to_string(&json_path)
+        .map_err(|e| format!("Failed to read images.json: {e}"))?;
 
-    let mut conn = get_conn()?;
+    let mut conn = get_writer()?;
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to start transaction: {e}"))?;
@@ -294,24 +352,165 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
     // Create indexes after bulk insert for performance.
     create_indexes(&conn)?;
 
+    conn.execute_batch("ANALYZE;")
+        .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
+
+    // Record schema version so next startup recognizes this DB as initialized
     conn.execute(
         "INSERT OR IGNORE INTO _meta (key, value) VALUES ('schema_version', '1')",
         [],
     )
     .map_err(|e| format!("Failed to store schema version: {e}"))?;
 
-    if let Some(v) = version {
-        conn.execute(
-            "INSERT OR REPLACE INTO _meta (key, value) VALUES ('json_version', ?1)",
-            params![v.to_string()],
-        )
-        .map_err(|e| format!("Failed to store json_version: {e}"))?;
-    }
+    drop(conn); // release writer before refresh_caches
+
+    // Refresh caches & store json_version
+    refresh_caches(img_dir, version)?;
 
     Ok(EnsureDbResult {
         status: "created".to_string(),
         imported: result.imported,
     })
+}
+
+/// Refresh cached aggregate data in `_meta` table.
+///
+/// Computes total / illust / author / tag counts, sidebar year / author / tag
+/// aggregations, and optionally updates `json_version` — all within a single
+/// transaction for atomicity. Safe to call repeatedly.
+pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String> {
+    // _img_dir is kept in the signature for future use / consistency with ensure_db
+    let _ = &img_dir;
+
+    let conn = get_writer()?;
+
+    // Single transaction for atomicity
+    conn.execute_batch("BEGIN TRANSACTION;")
+        .map_err(|e| e.to_string())?;
+
+    // 1. Full counts
+    let total: i64 = conn
+        .query_row("SELECT COUNT(*) FROM images", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let illust_count: i64 = conn
+        .query_row("SELECT COUNT(DISTINCT id) FROM images", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let author_count: i64 = conn
+        .query_row("SELECT COUNT(DISTINCT author_id) FROM images", [], |r| {
+            r.get(0)
+        })
+        .map_err(|e| e.to_string())?;
+
+    let tag_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let counts_json = serde_json::json!({
+        "total": total,
+        "illustCount": illust_count,
+        "authorCount": author_count,
+        "tagCount": tag_count,
+    })
+    .to_string();
+
+    conn.execute(
+        "INSERT OR REPLACE INTO _meta(key,value) VALUES('full_counts',?1)",
+        params![counts_json],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 2. Sidebar years
+    let mut stmt = conn
+        .prepare(
+            "SELECT CAST(substr(created_at,1,4) AS INTEGER) as year, COUNT(*) as count \
+             FROM images GROUP BY year ORDER BY year DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let years: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok(serde_json::json!({
+                "year": row.get::<_, i64>("year")?,
+                "count": row.get::<_, i64>("count")?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_years',?1)",
+        params![serde_json::to_string(&years).map_err(|e| e.to_string())?],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 3. Sidebar authors
+    let mut stmt = conn
+        .prepare(
+            "SELECT author_id as id, author_name as name, author_account as account, \
+             COUNT(DISTINCT id) as count FROM images \
+             GROUP BY author_id ORDER BY count DESC LIMIT 100",
+        )
+        .map_err(|e| e.to_string())?;
+    let authors: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, i64>("id")?,
+                "name": row.get::<_, String>("name")?,
+                "account": row.get::<_, String>("account")?,
+                "count": row.get::<_, i64>("count")?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_authors',?1)",
+        params![serde_json::to_string(&authors).map_err(|e| e.to_string())?],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 4. Sidebar tags
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.name, t.translated_name, COUNT(DISTINCT it.image_id) as count \
+             FROM tags t JOIN image_tags it ON it.tag_id = t.id \
+             GROUP BY t.name ORDER BY count DESC LIMIT 200",
+        )
+        .map_err(|e| e.to_string())?;
+    let tags: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok(serde_json::json!({
+                "name": row.get::<_, String>("name")?,
+                "translated_name": row.get::<_, Option<String>>("translated_name")?,
+                "count": row.get::<_, i64>("count")?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_tags',?1)",
+        params![serde_json::to_string(&tags).map_err(|e| e.to_string())?],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 5. Update json_version if provided
+    if let Some(v) = version {
+        conn.execute(
+            "INSERT OR REPLACE INTO _meta(key,value) VALUES('json_version',?1)",
+            params![v.to_string()],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // Commit transaction (all _meta keys atomically updated)
+    conn.execute_batch("COMMIT;").map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 /// Import image data from a raw JSON string.
@@ -323,16 +522,17 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
 /// Returns the number of rows imported vs skipped.
 pub fn import_json_to_db_logic(img_dir: &str, json_content: &str) -> Result<ImportResult, String> {
     // Lazy-init if this is called before ensure_db
-    if DB.get().is_none() {
+    if DB_READER.get().is_none() {
         let data_dir = format!("{img_dir}/data");
         if !std::path::Path::new(&data_dir).exists() {
-            std::fs::create_dir_all(&data_dir).map_err(|e| format!("Failed to create data dir: {e}"))?;
+            std::fs::create_dir_all(&data_dir)
+                .map_err(|e| format!("Failed to create data dir: {e}"))?;
         }
         let db_path = format!("{data_dir}/images.db");
         init_db(&db_path)?;
     }
 
-    let mut conn = get_conn()?;
+    let mut conn = get_writer()?;
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to start transaction: {e}"))?;
