@@ -61,20 +61,10 @@ fn ensure_db(img_dir: String, version: Option<i64>) -> Result<db::EnsureDbResult
 
 /// Paginated, filtered image query against the SQLite database.
 /// Supports all filter dimensions from the original JS imageFilter().
+/// Returns only the image rows (no aggregate counts — use query_image_counts).
 #[tauri::command]
 fn query_images(query: query::ImageQuery) -> Result<query::QueryResult, String> {
     let conn = db::get_conn()?;
-
-    let (count_sql, count_params) = query.build_count_sql();
-    let total: i64 = {
-        let refs: Vec<&dyn ToSql> = count_params.iter().map(|b| b.as_ref()).collect();
-        conn.query_row(
-            &count_sql,
-            rusqlite::params_from_iter(&refs),
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Count query failed: {e}"))?
-    };
 
     let (sql, params) = query.build_sql();
     let images: Vec<query::ImageRow> = {
@@ -168,60 +158,113 @@ fn query_images(query: query::ImageQuery) -> Result<query::QueryResult, String> 
         })
         .collect();
 
-    let (illust_count, author_count, tag_count) =
-        if query.include_counts.unwrap_or(false) {
-            let (csql, cparams) = query.build_counts_sql();
-            let refs: Vec<&dyn ToSql> = cparams.iter().map(|b| b.as_ref()).collect();
-            let counts = conn
-                .query_row(
-                    &csql,
-                    rusqlite::params_from_iter(&refs),
-                    |row| {
-                        Ok((
-                            row.get::<_, i64>("illust_count")?,
-                            row.get::<_, i64>("author_count")?,
-                        ))
-                    },
-                )
-                .map_err(|e| format!("Counts query failed: {e}"))?;
+    Ok(query::QueryResult { images, total: 0 })
+}
 
-            let (tcsql, tcparams) = query.build_tag_count_sql();
-            let tcrefs: Vec<&dyn ToSql> = tcparams.iter().map(|b| b.as_ref()).collect();
-            let tag_count: i64 = conn
-                .query_row(
-                    &tcsql,
-                    rusqlite::params_from_iter(&tcrefs),
-                    |row| row.get(0),
-                )
-                .map_err(|e| format!("Tag count query failed: {e}"))?;
+/// Aggregate counts for the current filter (total, illust_count,
+/// author_count, tag_count).
+#[tauri::command]
+fn query_image_counts(query: query::ImageQuery) -> Result<query::CountsResult, String> {
+    let conn = db::get_conn()?;
 
-            (Some(counts.0), Some(counts.1), Some(tag_count))
-        } else {
-            (None, None, None)
-        };
+    let (csql, cparams) = query.build_counts_sql();
+    let refs: Vec<&dyn ToSql> = cparams.iter().map(|b| b.as_ref()).collect();
+    let (total, illust_count, author_count): (i64, i64, i64) = conn
+        .query_row(
+            &csql,
+            rusqlite::params_from_iter(&refs),
+            |row| Ok((row.get("total")?, row.get("illust_count")?, row.get("author_count")?)),
+        )
+        .map_err(|e| format!("Counts query failed: {e}"))?;
 
-    Ok(query::QueryResult {
-        images,
-        total,
-        illust_count,
-        author_count,
-        tag_count,
-    })
+    let (tcsql, tcparams) = query.build_tag_count_sql();
+    let tcrefs: Vec<&dyn ToSql> = tcparams.iter().map(|b| b.as_ref()).collect();
+    let tag_count: i64 = conn
+        .query_row(
+            &tcsql,
+            rusqlite::params_from_iter(&tcrefs),
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Tag count query failed: {e}"))?;
+
+    Ok(query::CountsResult { total, illust_count, author_count, tag_count })
+}
+
+/// Read the cached full counts from the _meta table.
+/// These are populated by refresh_caches / ensure_db and include
+/// total, illustCount, authorCount, tagCount for the entire dataset.
+#[tauri::command]
+fn get_full_counts() -> Result<serde_json::Value, String> {
+    let conn = db::get_conn()?;
+    let val: String = conn
+        .query_row(
+            "SELECT value FROM _meta WHERE key = 'full_counts'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Full counts not cached: {e}"))?;
+    serde_json::from_str(&val).map_err(|e| format!("Parse failed: {e}"))
+}
+
+/// Refresh all cached aggregate data in the _meta table.
+/// Called after data import to update sidebar filters and full counts.
+#[tauri::command]
+fn refresh_caches(img_dir: String, version: Option<i64>) -> Result<(), String> {
+    db::refresh_caches(&img_dir, version)
+}
+
+/// Re-import images.json into the SQLite database, then refresh caches.
+/// Unlike import_json_to_db (which takes raw JSON as a string argument),
+/// this command reads images.json directly from disk.
+#[tauri::command]
+fn reimport_db(img_dir: String, version: Option<i64>) -> Result<db::ImportResult, String> {
+    let json_path = format!("{img_dir}/data/images.json");
+    let json_content = std::fs::read_to_string(&json_path)
+        .map_err(|e| format!("Failed to read images.json: {e}"))?;
+    let result = db::import_json_to_db_logic(&img_dir, &json_content)?;
+    db::refresh_caches(&img_dir, version)?;
+    Ok(result)
 }
 
 /// Aggregate filter options (years, authors, tags with counts) for the sidebar.
+/// Reads from cached data in _meta table. Falls back to full DB scan on cache miss.
 #[tauri::command]
 fn get_filter_options() -> Result<query::FilterOptions, String> {
     let conn = db::get_conn()?;
 
-    let years: Vec<query::YearOption> = {
+    fn read_json<T: serde::de::DeserializeOwned>(
+        conn: &rusqlite::Connection,
+        key: &str,
+        fallback: fn(&rusqlite::Connection) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let val: String = match conn.query_row(
+            "SELECT value FROM _meta WHERE key = ?1",
+            rusqlite::params![key],
+            |row| row.get(0),
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[WARN] Cache '{key}' not found: {e}, falling back to full scan");
+                return fallback(conn);
+            }
+        };
+        match serde_json::from_str(&val) {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                eprintln!("[WARN] Cache '{key}' parse failed: {e}, falling back to full scan");
+                fallback(conn)
+            }
+        }
+    }
+
+    fn fallback_years(conn: &rusqlite::Connection) -> Result<Vec<query::YearOption>, String> {
         let mut stmt = conn
             .prepare(
                 "SELECT CAST(substr(created_at,1,4) AS INTEGER) as year, \
                  COUNT(*) as count FROM images \
                  GROUP BY year ORDER BY year DESC",
             )
-            .map_err(|e| format!("Prepare years failed: {e}"))?;
+            .map_err(|e| format!("Years fallback failed: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 Ok(query::YearOption {
@@ -231,10 +274,10 @@ fn get_filter_options() -> Result<query::FilterOptions, String> {
             })
             .map_err(|e| format!("Years query failed: {e}"))?;
         rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| format!("Years collect failed: {e}"))?
-    };
+            .map_err(|e| format!("Years collect failed: {e}"))
+    }
 
-    let authors: Vec<query::AuthorOption> = {
+    fn fallback_authors(conn: &rusqlite::Connection) -> Result<Vec<query::AuthorOption>, String> {
         let mut stmt = conn
             .prepare(
                 "SELECT author_id as id, author_name as name, \
@@ -242,7 +285,7 @@ fn get_filter_options() -> Result<query::FilterOptions, String> {
                  FROM images GROUP BY author_id \
                  ORDER BY count DESC LIMIT 100",
             )
-            .map_err(|e| format!("Prepare authors failed: {e}"))?;
+            .map_err(|e| format!("Authors fallback failed: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 Ok(query::AuthorOption {
@@ -254,10 +297,10 @@ fn get_filter_options() -> Result<query::FilterOptions, String> {
             })
             .map_err(|e| format!("Authors query failed: {e}"))?;
         rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| format!("Authors collect failed: {e}"))?
-    };
+            .map_err(|e| format!("Authors collect failed: {e}"))
+    }
 
-    let tags: Vec<query::TagOption> = {
+    fn fallback_tags(conn: &rusqlite::Connection) -> Result<Vec<query::TagOption>, String> {
         let mut stmt = conn
             .prepare(
                 "SELECT t.name, t.translated_name, \
@@ -266,7 +309,7 @@ fn get_filter_options() -> Result<query::FilterOptions, String> {
                  JOIN image_tags it ON it.tag_id = t.id \
                  GROUP BY t.name ORDER BY count DESC LIMIT 200",
             )
-            .map_err(|e| format!("Prepare tags failed: {e}"))?;
+            .map_err(|e| format!("Tags fallback failed: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 Ok(query::TagOption {
@@ -277,13 +320,13 @@ fn get_filter_options() -> Result<query::FilterOptions, String> {
             })
             .map_err(|e| format!("Tags query failed: {e}"))?;
         rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|e| format!("Tags collect failed: {e}"))?
-    };
+            .map_err(|e| format!("Tags collect failed: {e}"))
+    }
 
     Ok(query::FilterOptions {
-        years,
-        authors,
-        tags,
+        years: read_json(&conn, "sidebar_years", fallback_years)?,
+        authors: read_json(&conn, "sidebar_authors", fallback_authors)?,
+        tags: read_json(&conn, "sidebar_tags", fallback_tags)?,
     })
 }
 
@@ -347,6 +390,10 @@ async fn main() {
             restart_app,
             ensure_db,
             query_images,
+            query_image_counts,
+            get_full_counts,
+            refresh_caches,
+            reimport_db,
             get_filter_options,
             search_tags,
             import_json_to_db,

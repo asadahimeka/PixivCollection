@@ -112,7 +112,6 @@ watch(modalMsg, () => {
 })
 
 let startUpdateCp: any = null
-let pendingReload = false
 const killUpdateCp = () => {
   try { startUpdateCp?.kill() } catch (err) {}
 }
@@ -132,13 +131,38 @@ async function updateBookmark() {
 
   // 创建命令
   const startCmd = new Command('cmd', ['/C', cmdPath], { cwd: cmdCwd })
-  startCmd.on('close', data => {
+  startCmd.on('close', async data => {
     const msg = `UpdateBookmark command finished with code ${data.code} and signal ${data.signal}.`
     console.log(msg)
     modalMsg.value += msg
-    const ver = localStorage.getItem('_images_json_version') || '0'
-    localStorage.setItem('_images_json_version', `${Number(ver) + 1}`)
-    pendingReload = true
+
+    try {
+      modalMsg.value += '\n开始导入数据到数据库...\n'
+      const ver = (Number(localStorage.getItem('_images_json_version') || '0')) + 1
+      localStorage.setItem('_images_json_version', String(ver))
+
+      // reimport_db: Rust side reads images.json from disk (no IPC for large JSON),
+      // incrementally imports, then refreshes _meta caches
+      const result = await invoke<{ imported: number; skipped: number }>('reimport_db', {
+        imgDir: __CONFIG__.imgDir,
+        version: ver,
+      })
+      modalMsg.value += `导入完成：${result.imported} 条新数据，${result.skipped} 条跳过\n`
+
+      // Refresh frontend counts from _meta cache
+      const counts = await invoke<any>('get_full_counts')
+      store.fullCounts.total = counts.total
+      store.fullCounts.illustCount = counts.illustCount
+      store.fullCounts.authorCount = counts.authorCount
+      store.fullCounts.tagCount = counts.tagCount
+
+      // Refresh first page
+      await store.loadImagesByPage(true)
+
+      modalMsg.value += '数据库已更新\n'
+    } catch (err) {
+      modalMsg.value += `<br><div style="color:#ff6565">导入失败: ${err}</div>`
+    }
   })
   startCmd.on('error', error => {
     const msg = `UpdateBookmark command error: "${error}".`
@@ -174,10 +198,7 @@ function closeMsgModal() {
   showModalMsg.value = false
   modalMsg.value = ''
   killUpdateCp()
-  if (pendingReload) {
-    pendingReload = false
-    location.reload()
-  }
+  // No more location.reload() — data is already updated via reimport_db
 }
 
 async function saveReload() {
@@ -259,16 +280,15 @@ async function init() {
         version: Number(localStorage.getItem('_images_json_version') || '0'),
       })
       // Populate full (unfiltered) counts for the sidebar "总计" row
+      // Read cached full counts from _meta (instant, no aggregate SQL)
       try {
-        const fullResult = await invoke<any>('query_images', {
-          query: { limit: 1, offset: 0, sort_by: 'id_desc', r18: 'show', max_sanity_level: null, include_counts: true },
-        })
-        store.fullCounts.total = fullResult.total
-        store.fullCounts.illustCount = fullResult.illust_count ?? 0
-        store.fullCounts.authorCount = fullResult.author_count ?? 0
-        store.fullCounts.tagCount = fullResult.tag_count ?? 0
+        const counts = await invoke<any>('get_full_counts')
+        store.fullCounts.total = counts.total
+        store.fullCounts.illustCount = counts.illustCount
+        store.fullCounts.authorCount = counts.authorCount
+        store.fullCounts.tagCount = counts.tagCount
       } catch (e) {
-        console.error('Failed to fetch full counts:', e)
+        console.warn('Full counts not cached yet:', e)
       }
       await store.loadImagesByPage(true)
     }

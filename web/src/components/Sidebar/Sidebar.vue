@@ -442,8 +442,16 @@ const filteredTags = computed(() => {
 
 // Re-fetch filter options when DB becomes ready (fullCounts.total changes from >0)
 // Sidebar mounts before App's init() runs, so a watch is needed instead of onMounted.
-watch(() => store.fullCounts.total, newVal => {
+watch(() => store.fullCounts.total, (newVal) => {
   if (newVal > 0) {
+    getFilters()
+  }
+})
+
+onMounted(() => {
+  // Handle the case where get_full_counts resolved before Sidebar mounted
+  // (init() runs before Sidebar finishes mounting, so this is necessary)
+  if (store.fullCounts.total > 0) {
     getFilters()
   }
 })
@@ -552,6 +560,8 @@ async function loadDataFromFile() {
         store.loadEnd = false
         store.imagesFiltered = []
         await store.loadImagesByPage(true)
+        // Refresh _meta caches after manual import
+        await invoke('refresh_caches', { imgDir: __CONFIG__.imgDir })
         await getFilters()
       } catch (err) {
         console.error('Import failed:', err)

@@ -8,9 +8,6 @@ import { getImageLargeSrc } from '@/utils'
 export interface QueryResult {
   images: Image[]
   total: number
-  illust_count: number | null
-  author_count: number | null
-  tag_count: number | null
 }
 
 const w = window as any
@@ -127,7 +124,6 @@ export const useStore = defineStore('main', {
       query.offset = this.curPageCursor
       query.limit = 60
       query.sort_by = this.masonryConfig.imageSortBy
-      query.include_counts = isFirstLoad || this.curPageCursor === 0
       const result = await invoke<any>('query_images', {
         query,
       })
@@ -157,11 +153,21 @@ export const useStore = defineStore('main', {
       }
       this.curPageCursor += result.images.length
       this.loadEnd = result.images.length < (query.limit ?? 60)
-      this.filteredCounts.total = result.total
-      if (result.illust_count !== null) {
-        this.filteredCounts.illustCount = result.illust_count ?? 0
-        this.filteredCounts.authorCount = result.author_count ?? 0
-        this.filteredCounts.tagCount = result.tag_count ?? 0
+
+      if (isFirstLoad || this.curPageCursor === 0) {
+        this.fetchFilteredCounts()
+      }
+    },
+    async fetchFilteredCounts() {
+      const query = this.buildFilterQuery()
+      try {
+        const result = await invoke<any>('query_image_counts', { query })
+        this.filteredCounts.total = result.total
+        this.filteredCounts.illustCount = result.illust_count
+        this.filteredCounts.authorCount = result.author_count
+        this.filteredCounts.tagCount = result.tag_count
+      } catch (e) {
+        console.warn('query_image_counts failed (preserving previous values):', e)
       }
     },
     openImageViewer(image: Image, prev: () => void, next: () => void, index: number): void {

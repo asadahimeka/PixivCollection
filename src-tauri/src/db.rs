@@ -384,28 +384,30 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
 
     let conn = get_writer()?;
 
-    // Single transaction for atomicity
-    conn.execute_batch("BEGIN TRANSACTION;")
-        .map_err(|e| e.to_string())?;
+    // Use rusqlite's Transaction API for automatic rollback on error.
+    // When `tx` is dropped without explicit commit, the transaction is rolled back.
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start cache transaction: {e}"))?;
 
     // 1. Full counts
-    let total: i64 = conn
+    let total: i64 = tx
         .query_row("SELECT COUNT(*) FROM images", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: full count failed: {e}"))?;
 
-    let illust_count: i64 = conn
+    let illust_count: i64 = tx
         .query_row("SELECT COUNT(DISTINCT id) FROM images", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: illust count failed: {e}"))?;
 
-    let author_count: i64 = conn
+    let author_count: i64 = tx
         .query_row("SELECT COUNT(DISTINCT author_id) FROM images", [], |r| {
             r.get(0)
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: author count failed: {e}"))?;
 
-    let tag_count: i64 = conn
+    let tag_count: i64 = tx
         .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: tag count failed: {e}"))?;
 
     let counts_json = serde_json::json!({
         "total": total,
@@ -415,19 +417,19 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
     })
     .to_string();
 
-    conn.execute(
+    tx.execute(
         "INSERT OR REPLACE INTO _meta(key,value) VALUES('full_counts',?1)",
         params![counts_json],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| format!("Cache: insert full_counts failed: {e}"))?;
 
     // 2. Sidebar years
-    let mut stmt = conn
+    let mut stmt = tx
         .prepare(
             "SELECT CAST(substr(created_at,1,4) AS INTEGER) as year, COUNT(*) as count \
              FROM images GROUP BY year ORDER BY year DESC",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: prepare years failed: {e}"))?;
     let years: Vec<serde_json::Value> = stmt
         .query_map([], |row| {
             Ok(serde_json::json!({
@@ -435,24 +437,24 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
                 "count": row.get::<_, i64>("count")?,
             }))
         })
-        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("Cache: query years failed: {e}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: collect years failed: {e}"))?;
 
-    conn.execute(
+    tx.execute(
         "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_years',?1)",
-        params![serde_json::to_string(&years).map_err(|e| e.to_string())?],
+        params![serde_json::to_string(&years).map_err(|e| format!("Cache: serialize years failed: {e}"))?],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| format!("Cache: insert sidebar_years failed: {e}"))?;
 
     // 3. Sidebar authors
-    let mut stmt = conn
+    let mut stmt = tx
         .prepare(
             "SELECT author_id as id, author_name as name, author_account as account, \
              COUNT(DISTINCT id) as count FROM images \
              GROUP BY author_id ORDER BY count DESC LIMIT 100",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: prepare authors failed: {e}"))?;
     let authors: Vec<serde_json::Value> = stmt
         .query_map([], |row| {
             Ok(serde_json::json!({
@@ -462,24 +464,24 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
                 "count": row.get::<_, i64>("count")?,
             }))
         })
-        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("Cache: query authors failed: {e}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: collect authors failed: {e}"))?;
 
-    conn.execute(
+    tx.execute(
         "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_authors',?1)",
-        params![serde_json::to_string(&authors).map_err(|e| e.to_string())?],
+        params![serde_json::to_string(&authors).map_err(|e| format!("Cache: serialize authors failed: {e}"))?],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| format!("Cache: insert sidebar_authors failed: {e}"))?;
 
     // 4. Sidebar tags
-    let mut stmt = conn
+    let mut stmt = tx
         .prepare(
             "SELECT t.name, t.translated_name, COUNT(DISTINCT it.image_id) as count \
              FROM tags t JOIN image_tags it ON it.tag_id = t.id \
              GROUP BY t.name ORDER BY count DESC LIMIT 200",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: prepare tags failed: {e}"))?;
     let tags: Vec<serde_json::Value> = stmt
         .query_map([], |row| {
             Ok(serde_json::json!({
@@ -488,27 +490,28 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
                 "count": row.get::<_, i64>("count")?,
             }))
         })
-        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("Cache: query tags failed: {e}"))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: collect tags failed: {e}"))?;
 
-    conn.execute(
+    tx.execute(
         "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_tags',?1)",
-        params![serde_json::to_string(&tags).map_err(|e| e.to_string())?],
+        params![serde_json::to_string(&tags).map_err(|e| format!("Cache: serialize tags failed: {e}"))?],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| format!("Cache: insert sidebar_tags failed: {e}"))?;
 
     // 5. Update json_version if provided
     if let Some(v) = version {
-        conn.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO _meta(key,value) VALUES('json_version',?1)",
             params![v.to_string()],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Cache: insert json_version failed: {e}"))?;
     }
 
-    // Commit transaction (all _meta keys atomically updated)
-    conn.execute_batch("COMMIT;").map_err(|e| e.to_string())?;
+    // Commit transaction (all _meta keys atomically updated).
+    // If this fails, tx drops and automatically rolls back.
+    tx.commit().map_err(|e| format!("Failed to commit cache update: {e}"))?;
 
     Ok(())
 }
