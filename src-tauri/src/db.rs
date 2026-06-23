@@ -314,6 +314,10 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
                     .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
                 drop(writer);
 
+                // Populate _meta caches (full_counts, sidebar_years, etc.)
+                // so existing-DB users get the same fast experience as new imports.
+                refresh_caches(img_dir, version)?;
+
                 let imported: i64 = conn
                     .query_row("SELECT COUNT(*) FROM images", [], |row| row.get(0))
                     .map_err(|e| format!("Failed to count images: {e}"))?;
@@ -382,7 +386,7 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
     // _img_dir is kept in the signature for future use / consistency with ensure_db
     let _ = &img_dir;
 
-    let conn = get_writer()?;
+    let mut conn = get_writer()?;
 
     // Use rusqlite's Transaction API for automatic rollback on error.
     // When `tx` is dropped without explicit commit, the transaction is rolled back.
@@ -423,82 +427,88 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
     )
     .map_err(|e| format!("Cache: insert full_counts failed: {e}"))?;
 
-    // 2. Sidebar years
-    let mut stmt = tx
-        .prepare(
-            "SELECT CAST(substr(created_at,1,4) AS INTEGER) as year, COUNT(*) as count \
-             FROM images GROUP BY year ORDER BY year DESC",
+    // 2. Sidebar years — scoped so stmt drops before tx.commit()
+    {
+        let mut stmt = tx
+            .prepare(
+                "SELECT CAST(substr(created_at,1,4) AS INTEGER) as year, COUNT(*) as count \
+                 FROM images GROUP BY year ORDER BY year DESC",
+            )
+            .map_err(|e| format!("Cache: prepare years failed: {e}"))?;
+        let years: Vec<serde_json::Value> = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "year": row.get::<_, i64>("year")?,
+                    "count": row.get::<_, i64>("count")?,
+                }))
+            })
+            .map_err(|e| format!("Cache: query years failed: {e}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Cache: collect years failed: {e}"))?;
+        drop(stmt);
+        tx.execute(
+            "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_years',?1)",
+            params![serde_json::to_string(&years).map_err(|e| format!("Cache: serialize years failed: {e}"))?],
         )
-        .map_err(|e| format!("Cache: prepare years failed: {e}"))?;
-    let years: Vec<serde_json::Value> = stmt
-        .query_map([], |row| {
-            Ok(serde_json::json!({
-                "year": row.get::<_, i64>("year")?,
-                "count": row.get::<_, i64>("count")?,
-            }))
-        })
-        .map_err(|e| format!("Cache: query years failed: {e}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Cache: collect years failed: {e}"))?;
+        .map_err(|e| format!("Cache: insert sidebar_years failed: {e}"))?;
+    }
 
-    tx.execute(
-        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_years',?1)",
-        params![serde_json::to_string(&years).map_err(|e| format!("Cache: serialize years failed: {e}"))?],
-    )
-    .map_err(|e| format!("Cache: insert sidebar_years failed: {e}"))?;
-
-    // 3. Sidebar authors
-    let mut stmt = tx
-        .prepare(
-            "SELECT author_id as id, author_name as name, author_account as account, \
-             COUNT(DISTINCT id) as count FROM images \
-             GROUP BY author_id ORDER BY count DESC LIMIT 100",
+    // 3. Sidebar authors — scoped so stmt drops before tx.commit()
+    {
+        let mut stmt = tx
+            .prepare(
+                "SELECT author_id as id, author_name as name, author_account as account, \
+                 COUNT(DISTINCT id) as count FROM images \
+                 GROUP BY author_id ORDER BY count DESC LIMIT 100",
+            )
+            .map_err(|e| format!("Cache: prepare authors failed: {e}"))?;
+        let authors: Vec<serde_json::Value> = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, i64>("id")?,
+                    "name": row.get::<_, String>("name")?,
+                    "account": row.get::<_, String>("account")?,
+                    "count": row.get::<_, i64>("count")?,
+                }))
+            })
+            .map_err(|e| format!("Cache: query authors failed: {e}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Cache: collect authors failed: {e}"))?;
+        drop(stmt);
+        tx.execute(
+            "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_authors',?1)",
+            params![serde_json::to_string(&authors).map_err(|e| format!("Cache: serialize authors failed: {e}"))?],
         )
-        .map_err(|e| format!("Cache: prepare authors failed: {e}"))?;
-    let authors: Vec<serde_json::Value> = stmt
-        .query_map([], |row| {
-            Ok(serde_json::json!({
-                "id": row.get::<_, i64>("id")?,
-                "name": row.get::<_, String>("name")?,
-                "account": row.get::<_, String>("account")?,
-                "count": row.get::<_, i64>("count")?,
-            }))
-        })
-        .map_err(|e| format!("Cache: query authors failed: {e}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Cache: collect authors failed: {e}"))?;
+        .map_err(|e| format!("Cache: insert sidebar_authors failed: {e}"))?;
+    }
 
-    tx.execute(
-        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_authors',?1)",
-        params![serde_json::to_string(&authors).map_err(|e| format!("Cache: serialize authors failed: {e}"))?],
-    )
-    .map_err(|e| format!("Cache: insert sidebar_authors failed: {e}"))?;
-
-    // 4. Sidebar tags
-    let mut stmt = tx
-        .prepare(
-            "SELECT t.name, t.translated_name, COUNT(DISTINCT it.image_id) as count \
-             FROM tags t JOIN image_tags it ON it.tag_id = t.id \
-             GROUP BY t.name ORDER BY count DESC LIMIT 200",
+    // 4. Sidebar tags — scoped so stmt drops before tx.commit()
+    {
+        let mut stmt = tx
+            .prepare(
+                "SELECT t.name, t.translated_name, COUNT(DISTINCT it.image_id) as count \
+                 FROM tags t JOIN image_tags it ON it.tag_id = t.id \
+                 GROUP BY t.name ORDER BY count DESC LIMIT 200",
+            )
+            .map_err(|e| format!("Cache: prepare tags failed: {e}"))?;
+        let tags: Vec<serde_json::Value> = stmt
+            .query_map([], |row| {
+                Ok(serde_json::json!({
+                    "name": row.get::<_, String>("name")?,
+                    "translated_name": row.get::<_, Option<String>>("translated_name")?,
+                    "count": row.get::<_, i64>("count")?,
+                }))
+            })
+            .map_err(|e| format!("Cache: query tags failed: {e}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Cache: collect tags failed: {e}"))?;
+        drop(stmt);
+        tx.execute(
+            "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_tags',?1)",
+            params![serde_json::to_string(&tags).map_err(|e| format!("Cache: serialize tags failed: {e}"))?],
         )
-        .map_err(|e| format!("Cache: prepare tags failed: {e}"))?;
-    let tags: Vec<serde_json::Value> = stmt
-        .query_map([], |row| {
-            Ok(serde_json::json!({
-                "name": row.get::<_, String>("name")?,
-                "translated_name": row.get::<_, Option<String>>("translated_name")?,
-                "count": row.get::<_, i64>("count")?,
-            }))
-        })
-        .map_err(|e| format!("Cache: query tags failed: {e}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Cache: collect tags failed: {e}"))?;
-
-    tx.execute(
-        "INSERT OR REPLACE INTO _meta(key,value) VALUES('sidebar_tags',?1)",
-        params![serde_json::to_string(&tags).map_err(|e| format!("Cache: serialize tags failed: {e}"))?],
-    )
-    .map_err(|e| format!("Cache: insert sidebar_tags failed: {e}"))?;
+        .map_err(|e| format!("Cache: insert sidebar_tags failed: {e}"))?;
+    }
 
     // 5. Update json_version if provided
     if let Some(v) = version {

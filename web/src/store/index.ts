@@ -7,7 +7,6 @@ import { getImageLargeSrc } from '@/utils'
 
 export interface QueryResult {
   images: Image[]
-  total: number
 }
 
 const w = window as any

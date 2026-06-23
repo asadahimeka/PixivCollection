@@ -83,7 +83,6 @@ pub struct ImageRow {
 #[derive(Debug, Serialize)]
 pub struct QueryResult {
     pub images: Vec<ImageRow>,
-    pub total: i64,
 }
 
 /// Aggregate counts result returned by the `query_image_counts` command.
@@ -103,13 +102,13 @@ pub struct FilterOptions {
     pub tags: Vec<TagOption>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct YearOption {
     pub year: i64,
     pub count: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthorOption {
     pub id: i64,
     pub name: String,
@@ -117,7 +116,7 @@ pub struct AuthorOption {
     pub count: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TagOption {
     pub name: String,
     pub translated_name: Option<String>,
@@ -154,8 +153,6 @@ const BASE_SELECT: &str = concat!(
     "i.created_at, i.sanity_level, i.x_restrict, i.is_ai, ",
     "i.img_s, i.img_m, i.img_l, i.img_o FROM images i WHERE 1=1",
 );
-
-const COUNT_SELECT: &str = "SELECT COUNT(*) as total FROM images i WHERE 1=1";
 
 const COUNTS_SELECT: &str = concat!(
     "SELECT COUNT(*) as total, ",
@@ -378,14 +375,6 @@ impl ImageQuery {
         let n_off = push_param(&mut pi, &mut params, offset);
         sql.push_str(&format!(" LIMIT ?{} OFFSET ?{}", n_lim, n_off));
 
-        (sql, params)
-    }
-
-    /// Build a `COUNT(*)` query with the same filters (no pagination).
-    pub fn build_count_sql(&self) -> (String, Vec<Box<dyn ToSql>>) {
-        let (where_clause, params) = self.build_where();
-        let mut sql = String::from(COUNT_SELECT);
-        sql.push_str(&where_clause);
         (sql, params)
     }
 

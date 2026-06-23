@@ -275,20 +275,22 @@ async function init() {
           sessionStorage.setItem('local_server_started', 'true')
         }
       }
-      await invoke('ensure_db', {
+      const ensureResult = await invoke<{ status: string }>('ensure_db', {
         imgDir: __CONFIG__.imgDir,
         version: Number(localStorage.getItem('_images_json_version') || '0'),
       })
       // Populate full (unfiltered) counts for the sidebar "总计" row
       // Read cached full counts from _meta (instant, no aggregate SQL)
-      try {
-        const counts = await invoke<any>('get_full_counts')
-        store.fullCounts.total = counts.total
-        store.fullCounts.illustCount = counts.illustCount
-        store.fullCounts.authorCount = counts.authorCount
-        store.fullCounts.tagCount = counts.tagCount
-      } catch (e) {
-        console.warn('Full counts not cached yet:', e)
+      if (ensureResult.status !== 'no_data') {
+        try {
+          const counts = await invoke<any>('get_full_counts')
+          store.fullCounts.total = counts.total
+          store.fullCounts.illustCount = counts.illustCount
+          store.fullCounts.authorCount = counts.authorCount
+          store.fullCounts.tagCount = counts.tagCount
+        } catch (e) {
+          console.warn('Full counts not cached yet:', e)
+        }
       }
       await store.loadImagesByPage(true)
     }

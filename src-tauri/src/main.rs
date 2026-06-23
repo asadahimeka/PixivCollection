@@ -158,7 +158,7 @@ fn query_images(query: query::ImageQuery) -> Result<query::QueryResult, String> 
         })
         .collect();
 
-    Ok(query::QueryResult { images, total: 0 })
+    Ok(query::QueryResult { images })
 }
 
 /// Aggregate counts for the current filter (total, illust_count,
