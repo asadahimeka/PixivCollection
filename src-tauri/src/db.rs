@@ -36,10 +36,11 @@ fn create_schema(conn: &Connection) -> Result<(), String> {
             sanity_level INTEGER NOT NULL DEFAULT 0,
             x_restrict INTEGER NOT NULL DEFAULT 0,
             is_ai INTEGER NOT NULL DEFAULT 0,
-            img_s TEXT NOT NULL DEFAULT '',
+             img_s TEXT NOT NULL DEFAULT '',
             img_m TEXT NOT NULL DEFAULT '',
             img_l TEXT NOT NULL DEFAULT '',
             img_o TEXT NOT NULL DEFAULT '',
+            \"order\" INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (id, part)
         );
         CREATE TABLE IF NOT EXISTS tags (
@@ -74,7 +75,8 @@ fn create_indexes(conn: &Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS idx_images_sanity_level ON images(sanity_level);
          CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
          CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags(image_id, image_part);
-         CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);",
+          CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+          CREATE INDEX IF NOT EXISTS idx_images_order ON images(\"order\");",
     )
     .map_err(|e| format!("Failed to create indexes: {e}"))
 }
@@ -147,7 +149,8 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
     let mut imported = 0i64;
     let mut skipped = 0i64;
 
-    for item in &items {
+    for (idx, item) in items.iter().enumerate() {
+        let img_order = idx as i64;
         let id = item["id"].as_i64().unwrap_or(0);
         let part = item["part"].as_i64().unwrap_or(0);
         let len = item["len"].as_i64().unwrap_or(1);
@@ -183,11 +186,11 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                  (id, part, len, title, width, height, ext, \
                   author_id, author_name, author_account, bookmark, view, created_at, \
                   sanity_level, x_restrict, is_ai, \
-                  img_s, img_m, img_l, img_o) \
+                  img_s, img_m, img_l, img_o, \"order\") \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, \
                          ?8, ?9, ?10, ?11, ?12, ?13, \
                          ?14, ?15, ?16, \
-                         ?17, ?18, ?19, ?20)",
+                         ?17, ?18, ?19, ?20, ?21)",
                 params![
                     id,
                     part,
@@ -209,6 +212,7 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                     img_m,
                     img_l,
                     img_o,
+                    img_order,
                 ],
             )
             .map_err(|e| format!("Failed to insert image {id} p{part}: {e}"))?;
@@ -280,6 +284,7 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
 
     if db_exists {
         let conn = get_conn()?;
+
         let has_schema: bool = conn
             .query_row(
                 "SELECT COUNT(*) FROM _meta WHERE key = 'schema_version'",
@@ -314,9 +319,23 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
                     .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
                 drop(writer);
 
-                // Populate _meta caches (full_counts, sidebar_years, etc.)
-                // so existing-DB users get the same fast experience as new imports.
-                refresh_caches(img_dir, version)?;
+                // Only refresh caches if they're missing from _meta (e.g. old DB
+                // created before the cache feature was added).  Once populated,
+                // caches persist across restarts — no need to recompute them on
+                // every startup.  They are refreshed automatically after data
+                // imports (reimport_db / import_json_to_db).
+                let cache_missing: bool = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM _meta WHERE key = 'sidebar_years'",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .map(|c| c == 0)
+                    .unwrap_or(true);
+
+                if cache_missing {
+                    refresh_caches(img_dir, version)?;
+                }
 
                 let imported: i64 = conn
                     .query_row("SELECT COUNT(*) FROM images", [], |row| row.get(0))

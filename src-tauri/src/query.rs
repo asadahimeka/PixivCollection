@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub struct ImageQuery {
     pub offset: Option<i64>,
     pub limit: Option<i64>,
-    /// `"id_desc"` (default), `"id_asc"`, or `"bookmark_desc"`
+    /// `"original"` (default), `"id_asc"`, `"id_desc"`, or `"bookmark_desc"`
     pub sort_by: Option<String>,
     /// Free-text search (matched against id, title, author id, author name,
     /// tag names and translated tag names).
@@ -162,9 +162,9 @@ const COUNTS_SELECT: &str = concat!(
 );
 
 const TAG_COUNT_SELECT: &str = concat!(
-    "SELECT COUNT(DISTINCT t.name) FROM images i ",
+    "SELECT COUNT(DISTINCT it.tag_id) FROM images i ",
     "JOIN image_tags it ON i.id = it.image_id AND i.part = it.image_part ",
-    "JOIN tags t ON it.tag_id = t.id WHERE 1=1",
+    "WHERE 1=1",
 );
 
 // ---------------------------------------------------------------------------
@@ -360,12 +360,29 @@ impl ImageQuery {
         sql.push_str(&where_clause);
 
         // ORDER BY
-        match self.sort_by.as_deref().unwrap_or("id_desc") {
+        match self.sort_by.as_deref().unwrap_or("original") {
             "id_asc" => sql.push_str(" ORDER BY i.id ASC, i.part ASC"),
+            "id_desc" => sql.push_str(" ORDER BY i.id DESC, i.part ASC"),
+            "created_at_asc" => {
+                sql.push_str(" ORDER BY i.created_at ASC, i.id ASC, i.part ASC");
+            }
+            "created_at_desc" => {
+                sql.push_str(" ORDER BY i.created_at DESC, i.id DESC, i.part ASC");
+            }
+            "bookmark_asc" => {
+                sql.push_str(" ORDER BY i.bookmark ASC, i.id ASC, i.part ASC");
+            }
             "bookmark_desc" => {
                 sql.push_str(" ORDER BY i.bookmark DESC, i.id DESC, i.part ASC");
             }
-            _ => sql.push_str(" ORDER BY i.id DESC, i.part ASC"),
+            "view_asc" => {
+                sql.push_str(" ORDER BY i.view ASC, i.id ASC, i.part ASC");
+            }
+            "view_desc" => {
+                sql.push_str(" ORDER BY i.view DESC, i.id DESC, i.part ASC");
+            }
+            "random" => sql.push_str(" ORDER BY RANDOM()"),
+            _ => sql.push_str(" ORDER BY i.\"order\" ASC, i.part ASC"),
         }
 
         // LIMIT / OFFSET

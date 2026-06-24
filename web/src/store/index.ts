@@ -19,6 +19,7 @@ export const useStore = defineStore('main', {
     imagesLoaded: new Set(),
     curPageCursor: 0,
     loadEnd: false,
+    isFiltering: false,
 
     fullCounts: {
       total: 0,
@@ -49,15 +50,15 @@ export const useStore = defineStore('main', {
     },
     masonryConfig: {
       col: -1,
-      gap: 20,
-      imageMinWidth: 240,
+      gap: 10,
+      imageMinWidth: 280,
       containerFullWidth: true,
       mergeSameIdImage: true,
-      infoAtBottom: false,
-      showTagTranslation: true,
+      infoAtBottom: true,
+      showTagTranslation: false,
       virtualListEnable: true,
       showShadow: false,
-      imageSortBy: 'id_desc' as 'id_desc' | 'id_asc' | 'bookmark_desc',
+      imageSortBy: 'original' as 'original' | 'id_desc' | 'id_asc' | 'bookmark_desc' | 'bookmark_asc' | 'created_at_desc' | 'created_at_asc' | 'view_desc' | 'view_asc' | 'random',
       useLocalImage: true,
       useFancybox: false,
       loadImageByLocalHttp: false,
@@ -118,43 +119,48 @@ export const useStore = defineStore('main', {
         this.curPageCursor = 0
         this.loadEnd = false
         this.imagesFiltered = []
+        this.isFiltering = true
       }
-      const query = this.buildFilterQuery()
-      query.offset = this.curPageCursor
-      query.limit = 60
-      query.sort_by = this.masonryConfig.imageSortBy
-      const result = await invoke<any>('query_images', {
-        query,
-      })
-      // Transform flat Rust fields → frontend nested format
-      const images: Image[] = result.images.map((img: any) => ({
-        id: img.id,
-        part: img.part,
-        len: img.len,
-        title: img.title,
-        ext: img.ext,
-        size: [img.width, img.height] as [number, number],
-        author: { id: img.author_id, name: img.author_name, account: img.author_account },
-        tags: img.tags ?? [],
-        created_at: img.created_at,
-        sanity_level: img.sanity_level,
-        x_restrict: img.x_restrict,
-        dominant_color: '',
-        bookmark: img.bookmark,
-        view: img.view,
-        images: { s: img.img_s, m: img.img_m, l: img.img_l, o: img.img_o },
-        isAI: img.is_ai,
-      }))
-      if (isFirstLoad) {
-        this.imagesFiltered = images
-      } else {
-        this.imagesFiltered = this.imagesFiltered.concat(images)
-      }
-      this.curPageCursor += result.images.length
-      this.loadEnd = result.images.length < (query.limit ?? 60)
+      try {
+        const query = this.buildFilterQuery()
+        query.offset = this.curPageCursor
+        query.limit = 60
+        query.sort_by = this.masonryConfig.imageSortBy
+        const result = await invoke<any>('query_images', {
+          query,
+        })
+        // Transform flat Rust fields → frontend nested format
+        const images: Image[] = result.images.map((img: any) => ({
+          id: img.id,
+          part: img.part,
+          len: img.len,
+          title: img.title,
+          ext: img.ext,
+          size: [img.width, img.height] as [number, number],
+          author: { id: img.author_id, name: img.author_name, account: img.author_account },
+          tags: img.tags ?? [],
+          created_at: img.created_at,
+          sanity_level: img.sanity_level,
+          x_restrict: img.x_restrict,
+          dominant_color: '',
+          bookmark: img.bookmark,
+          view: img.view,
+          images: { s: img.img_s, m: img.img_m, l: img.img_l, o: img.img_o },
+          isAI: img.is_ai,
+        }))
+        if (isFirstLoad) {
+          this.imagesFiltered = images
+        } else {
+          this.imagesFiltered = this.imagesFiltered.concat(images)
+        }
+        this.curPageCursor += result.images.length
+        this.loadEnd = result.images.length < (query.limit ?? 60)
 
-      if (isFirstLoad || this.curPageCursor === 0) {
-        this.fetchFilteredCounts()
+        if (isFirstLoad || this.curPageCursor === 0) {
+          this.fetchFilteredCounts()
+        }
+      } finally {
+        if (isFirstLoad) this.isFiltering = false
       }
     },
     async fetchFilteredCounts() {

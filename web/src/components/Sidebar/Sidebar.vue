@@ -87,14 +87,35 @@
             class="mx-1 rounded-md border px-1 py-0.5 transition-colors hover:border-blue-500 dark:border-white/20 dark:bg-[#1a1a1a] dark:hover:border-blue-500"
             @change="store.sortImages"
           >
+            <option value="original">
+              默认
+            </option>
             <option value="id_desc">
               ID 降序
             </option>
             <option value="id_asc">
               ID 升序
             </option>
+            <option value="created_at_desc">
+              发布时间降序
+            </option>
+            <option value="created_at_asc">
+              发布时间升序
+            </option>
             <option value="bookmark_desc">
               收藏数降序
+            </option>
+            <option value="bookmark_asc">
+              收藏数升序
+            </option>
+            <option value="view_desc">
+              浏览数降序
+            </option>
+            <option value="view_asc">
+              浏览数升序
+            </option>
+            <option value="random">
+              随机
             </option>
           </select>
         </div>
@@ -442,7 +463,7 @@ const filteredTags = computed(() => {
 
 // Re-fetch filter options when DB becomes ready (fullCounts.total changes from >0)
 // Sidebar mounts before App's init() runs, so a watch is needed instead of onMounted.
-watch(() => store.fullCounts.total, (newVal) => {
+watch(() => store.fullCounts.total, newVal => {
   if (newVal > 0) {
     getFilters()
   }
