@@ -5,18 +5,18 @@
       <SidebarMask />
       <Navbar @updatebookmark="updateBookmark()" />
       <template v-if="!store.imagesFiltered.length">
-        <Tip v-if="loading">
+        <Tip v-if="loading || store.isFiltering">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
           <div class="text-center">
-            数据加载中<br>
+            {{ store.isFiltering ? '筛选中...' : '数据加载中' }}<br>
           </div>
         </Tip>
-        <Tip v-if="!loading && !notSettled">
+        <Tip v-if="!loading && !store.isFiltering && !notSettled">
           <div class="text-center">
             暂无数据<br>
           </div>
         </Tip>
-        <div v-if="!loading && notSettled" class="my-2 text-center">
+        <div v-if="!loading && !store.isFiltering && notSettled" class="my-2 text-center">
           <div class="my-1 p-1">
             设置 Pixiv RefreshToken
             <input
@@ -275,9 +275,10 @@ async function init() {
           sessionStorage.setItem('local_server_started', 'true')
         }
       }
+      const verStr = localStorage.getItem('_images_json_version')
       const ensureResult = await invoke<{ status: string }>('ensure_db', {
         imgDir: __CONFIG__.imgDir,
-        version: Number(localStorage.getItem('_images_json_version') || '0'),
+        version: verStr ? Number(verStr) : null,
       })
       // Populate full (unfiltered) counts for the sidebar "总计" row
       // Read cached full counts from _meta (instant, no aggregate SQL)

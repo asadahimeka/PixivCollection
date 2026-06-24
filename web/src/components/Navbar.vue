@@ -66,7 +66,7 @@
               @click="selectSuggestion(tag)"
               @mouseenter="highlightIdx = idx"
             >
-              <span class="flex-1 truncate">{{ tag.translated_name || tag.name }}</span>
+              <span class="flex-1 truncate">{{ tag.translated_name || tag.name }}<span v-if="tag.translated_name" class="ml-1 text-xs text-gray-400">({{ tag.name }})</span></span>
               <span class="ml-2 shrink-0 text-xs text-gray-400">{{ tag.count }} 幅</span>
             </button>
           </div>
@@ -135,13 +135,22 @@ const showSuggestions = ref(false)
 const suggestions = ref<{ name: string; translated_name: string | null; count: number }[]>([])
 const highlightIdx = ref(-1)
 const searchInputEl = ref<HTMLInputElement>()
+// Track the last value that was sent to search_tags, so we can skip redundant
+// fetches when the input value was set programmatically (e.g. by selecting a
+// suggestion) and hasn't changed since.
+let lastQueriedValue = ''
 
 const fetchSuggestions = useDebounceFn(async (value: string) => {
   if (!value.trim()) {
     suggestions.value = []
     showSuggestions.value = false
+    lastQueriedValue = ''
     return
   }
+  // Don't re-fetch if we already have (or just closed) the dropdown for this
+  // exact value — avoids reopening after selectSuggestion sets the input.
+  if (value === lastQueriedValue) return
+  lastQueriedValue = value
   try {
     const result = await invoke<any[]>('search_tags', { query: value.trim() })
     suggestions.value = result
@@ -178,6 +187,9 @@ function onSearchSubmit() {
 
 function selectSuggestion(tag: { name: string; translated_name: string | null }) {
   searchInput.value = tag.translated_name || tag.name
+  // Sync lastQueriedValue now so the pending watch → fetchSuggestions sees
+  // the value hasn't changed and skips the redundant API call.
+  lastQueriedValue = searchInput.value
   showSuggestions.value = false
   store.updateSearchValue(searchInput.value)
 }

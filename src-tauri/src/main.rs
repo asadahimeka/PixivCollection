@@ -342,7 +342,7 @@ fn search_tags(query: String) -> Result<Vec<query::TagSuggestion>, String> {
              COUNT(DISTINCT it.image_id) as count \
              FROM tags t \
              JOIN image_tags it ON it.tag_id = t.id \
-             WHERE t.name LIKE ?1 \
+             WHERE t.name LIKE ?1 OR t.translated_name LIKE ?1 \
              GROUP BY t.name \
              ORDER BY count DESC \
              LIMIT 15",
