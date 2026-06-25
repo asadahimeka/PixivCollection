@@ -54,9 +54,16 @@ fn restart_app(app_handle: tauri::AppHandle) {
 /// Called once on app startup before any query.
 /// `version` is an optional JSON version counter from localStorage.
 /// When provided and different from the stored version, a re-import is triggered.
+/// Emits `import-progress` events to the frontend during the initial import.
 #[tauri::command]
-fn ensure_db(img_dir: String, version: Option<i64>) -> Result<db::EnsureDbResult, String> {
-    db::ensure_db(&img_dir, version)
+fn ensure_db(app: tauri::AppHandle, img_dir: String, version: Option<i64>) -> Result<db::EnsureDbResult, String> {
+    let emit = |current: usize, total: usize| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "current": current, "total": total }),
+        );
+    };
+    db::ensure_db(&img_dir, version, Some(&emit))
 }
 
 /// Paginated, filtered image query against the SQLite database.
@@ -117,14 +124,14 @@ fn query_images(query: query::ImageQuery) -> Result<query::QueryResult, String> 
     };
 
     // ---- Batch fetch tags ----
-    let mut tag_map: std::collections::HashMap<i64, Vec<query::ImageTag>> =
+    let mut tag_map: std::collections::HashMap<(i64, i64), Vec<query::ImageTag>> =
         std::collections::HashMap::new();
     {
         let ids: Vec<i64> = images.iter().map(|img| img.id).collect();
         if !ids.is_empty() {
             let ph: Vec<String> = (1..=ids.len()).map(|i| format!("?{i}")).collect();
             let tag_sql = format!(
-                "SELECT it.image_id, t.name, t.translated_name \
+                "SELECT it.image_id, it.image_part, t.name, t.translated_name \
                  FROM image_tags it \
                  JOIN tags t ON t.id = it.tag_id \
                  WHERE it.image_id IN ({})",
@@ -137,21 +144,22 @@ fn query_images(query: query::ImageQuery) -> Result<query::QueryResult, String> 
             let tag_rows = tag_stmt
                 .query_map(rusqlite::params_from_iter(&tag_refs), |row| {
                     let image_id: i64 = row.get("image_id")?;
+                    let image_part: i64 = row.get("image_part")?;
                     let name: String = row.get("name")?;
                     let translated_name: Option<String> = row.get("translated_name")?;
-                    Ok((image_id, query::ImageTag { name, translated_name }))
+                    Ok((image_id, image_part, query::ImageTag { name, translated_name }))
                 })
                 .map_err(|e| format!("Tag query failed: {e}"))?;
             for tag_row in tag_rows {
-                let (image_id, tag) = tag_row.map_err(|e| format!("Tag row failed: {e}"))?;
-                tag_map.entry(image_id).or_default().push(tag);
+                let (image_id, image_part, tag) = tag_row.map_err(|e| format!("Tag row failed: {e}"))?;
+                tag_map.entry((image_id, image_part)).or_default().push(tag);
             }
         }
     }
     let images: Vec<query::ImageRow> = images
         .into_iter()
         .map(|mut img| {
-            if let Some(tags) = tag_map.remove(&img.id) {
+            if let Some(tags) = tag_map.remove(&(img.id, img.part)) {
                 img.tags = tags;
             }
             img
@@ -216,12 +224,19 @@ fn refresh_caches(img_dir: String, version: Option<i64>) -> Result<(), String> {
 /// Re-import images.json into the SQLite database, then refresh caches.
 /// Unlike import_json_to_db (which takes raw JSON as a string argument),
 /// this command reads images.json directly from disk.
+/// Emits `import-progress` events to the frontend during the import.
 #[tauri::command]
-fn reimport_db(img_dir: String, version: Option<i64>) -> Result<db::ImportResult, String> {
+fn reimport_db(app: tauri::AppHandle, img_dir: String, version: Option<i64>) -> Result<db::ImportResult, String> {
     let json_path = format!("{img_dir}/data/images.json");
     let json_content = std::fs::read_to_string(&json_path)
         .map_err(|e| format!("Failed to read images.json: {e}"))?;
-    let result = db::import_json_to_db_logic(&img_dir, &json_content)?;
+    let emit = |current: usize, total: usize| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "current": current, "total": total }),
+        );
+    };
+    let result = db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit))?;
     db::refresh_caches(&img_dir, version)?;
     Ok(result)
 }
@@ -366,12 +381,20 @@ fn search_tags(query: String) -> Result<Vec<query::TagSuggestion>, String> {
 
 /// Import image data from a raw JSON string into the SQLite database.
 /// Deduplicates on (id, part) primary key.
+/// Emits `import-progress` events to the frontend during the import.
 #[tauri::command]
 fn import_json_to_db(
+    app: tauri::AppHandle,
     img_dir: String,
     json_content: String,
 ) -> Result<db::ImportResult, String> {
-    db::import_json_to_db_logic(&img_dir, &json_content)
+    let emit = |current: usize, total: usize| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "current": current, "total": total }),
+        );
+    };
+    db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit))
 }
 
 #[tokio::main]

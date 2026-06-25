@@ -40,7 +40,7 @@ fn create_schema(conn: &Connection) -> Result<(), String> {
             img_m TEXT NOT NULL DEFAULT '',
             img_l TEXT NOT NULL DEFAULT '',
             img_o TEXT NOT NULL DEFAULT '',
-            \"order\" INTEGER NOT NULL DEFAULT 0,
+            img_order INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (id, part)
         );
         CREATE TABLE IF NOT EXISTS tags (
@@ -76,7 +76,7 @@ fn create_indexes(conn: &Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
          CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags(image_id, image_part);
           CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
-          CREATE INDEX IF NOT EXISTS idx_images_order ON images(\"order\");",
+                     CREATE INDEX IF NOT EXISTS idx_images_order ON images(img_order);",
     )
     .map_err(|e| format!("Failed to create indexes: {e}"))
 }
@@ -142,9 +142,23 @@ pub fn get_conn() -> Result<MutexGuard<'static, Connection>, String> {
 /// Parses a JSON array of image objects, bulk-inserts into `images`,
 /// normalises tags into `tags` / `image_tags`, and returns the count of
 /// rows inserted vs skipped (duplicate primary key).
-fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<ImportResult, String> {
+///
+/// When `on_progress` is provided, it is called periodically with
+/// `(processed, total)` counts for progress feedback.
+fn import_in_transaction(
+    tx: &Transaction<'_>,
+    json_content: &str,
+    on_progress: Option<&dyn Fn(usize, usize)>,
+) -> Result<ImportResult, String> {
     let items: Vec<serde_json::Value> =
         serde_json::from_str(json_content).map_err(|e| format!("Failed to parse JSON: {e}"))?;
+    let total = items.len();
+
+    if total >= 50 {
+        if let Some(cb) = on_progress {
+            cb(0, total);
+        }
+    }
 
     let mut imported = 0i64;
     let mut skipped = 0i64;
@@ -186,7 +200,7 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
                  (id, part, len, title, width, height, ext, \
                   author_id, author_name, author_account, bookmark, view, created_at, \
                   sanity_level, x_restrict, is_ai, \
-                  img_s, img_m, img_l, img_o, \"order\") \
+                  img_s, img_m, img_l, img_o, img_order) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, \
                          ?8, ?9, ?10, ?11, ?12, ?13, \
                          ?14, ?15, ?16, \
@@ -225,6 +239,12 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
             continue;
         }
 
+        if total >= 50 && idx % 100 == 0 {
+            if let Some(cb) = on_progress {
+                cb(idx + 1, total);
+            }
+        }
+
         if let Some(tags) = item["tags"].as_array() {
             for tag_obj in tags {
                 let name = tag_obj["name"].as_str().unwrap_or("");
@@ -256,6 +276,13 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
         }
     }
 
+    // Ensure we report 100% when done
+    if total >= 50 {
+        if let Some(cb) = on_progress {
+            cb(total, total);
+        }
+    }
+
     Ok(ImportResult { imported, skipped })
 }
 
@@ -269,7 +296,14 @@ fn import_in_transaction(tx: &Transaction<'_>, json_content: &str) -> Result<Imp
 ///
 /// Otherwise reads `{img_dir}/images.json`, bulk-imports every entry,
 /// creates indexes, and records both `schema_version` and `json_version`.
-pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, String> {
+///
+/// When `on_progress` is provided, it is forwarded to `import_in_transaction`
+/// for periodic progress feedback during the import loop.
+pub fn ensure_db(
+    img_dir: &str,
+    version: Option<i64>,
+    on_progress: Option<&dyn Fn(usize, usize)>,
+) -> Result<EnsureDbResult, String> {
     let data_dir = format!("{img_dir}/data");
     let db_path = format!("{data_dir}/images.db");
     if !std::path::Path::new(&data_dir).exists() {
@@ -311,13 +345,28 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
             };
 
             if !needs_reimport {
-                // Migration: idempotent, ensures existing DBs get new indexes + ANALYZE
-                let writer = get_writer()?;
-                create_indexes(&writer)?;
-                writer
-                    .execute_batch("ANALYZE;")
-                    .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
-                drop(writer);
+                let indexes_done: bool = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM _meta WHERE key = 'indexes_built'",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .map(|c| c > 0)
+                    .unwrap_or(false);
+
+                if !indexes_done {
+                    let writer = get_writer()?;
+                    create_indexes(&writer)?;
+                    writer
+                        .execute_batch("ANALYZE;")
+                        .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
+                    drop(writer);
+                    conn.execute(
+                        "INSERT OR IGNORE INTO _meta (key, value) VALUES ('indexes_built', '1')",
+                        [],
+                    )
+                    .map_err(|e| format!("Failed to set indexes_built: {e}"))?;
+                }
 
                 // Only refresh caches if they're missing from _meta (e.g. old DB
                 // created before the cache feature was added).  Once populated,
@@ -367,7 +416,7 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
         .transaction()
         .map_err(|e| format!("Failed to start transaction: {e}"))?;
 
-    let result = import_in_transaction(&tx, &json_content)?;
+    let result = import_in_transaction(&tx, &json_content, on_progress)?;
 
     tx.commit()
         .map_err(|e| format!("Failed to commit transaction: {e}"))?;
@@ -377,6 +426,12 @@ pub fn ensure_db(img_dir: &str, version: Option<i64>) -> Result<EnsureDbResult, 
 
     conn.execute_batch("ANALYZE;")
         .map_err(|e| format!("Failed to run ANALYZE: {e}"))?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO _meta (key, value) VALUES ('indexes_built', '1')",
+        [],
+    )
+    .map_err(|e| format!("Failed to set indexes_built: {e}"))?;
 
     // Record schema version so next startup recognizes this DB as initialized
     conn.execute(
@@ -552,7 +607,14 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
 /// ensures indexes exist.
 ///
 /// Returns the number of rows imported vs skipped.
-pub fn import_json_to_db_logic(img_dir: &str, json_content: &str) -> Result<ImportResult, String> {
+///
+/// When `on_progress` is provided, it is forwarded to `import_in_transaction`
+/// for periodic progress feedback during the import loop.
+pub fn import_json_to_db_logic(
+    img_dir: &str,
+    json_content: &str,
+    on_progress: Option<&dyn Fn(usize, usize)>,
+) -> Result<ImportResult, String> {
     // Lazy-init if this is called before ensure_db
     if DB_READER.get().is_none() {
         let data_dir = format!("{img_dir}/data");
@@ -569,7 +631,7 @@ pub fn import_json_to_db_logic(img_dir: &str, json_content: &str) -> Result<Impo
         .transaction()
         .map_err(|e| format!("Failed to start transaction: {e}"))?;
 
-    let result = import_in_transaction(&tx, json_content)?;
+    let result = import_in_transaction(&tx, json_content, on_progress)?;
 
     tx.commit()
         .map_err(|e| format!("Failed to commit transaction: {e}"))?;

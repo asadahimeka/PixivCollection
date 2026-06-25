@@ -39,6 +39,11 @@ pub struct ImageQuery {
     /// `"hidden"` (hide R18), `"only"` (R18 only), or `"show"` (no filter).
     pub r18: Option<String>,
     pub max_sanity_level: Option<i64>,
+    /// Stable seed for deterministic random ordering.
+    /// When `sort_by = "random"` and a seed is provided, uses
+    /// `(id * seed + part * 7919) % 2147483647` instead of `RANDOM()`
+    /// so that pagination yields consistent, non-overlapping results.
+    pub random_seed: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -381,8 +386,18 @@ impl ImageQuery {
             "view_desc" => {
                 sql.push_str(" ORDER BY i.view DESC, i.id DESC, i.part ASC");
             }
-            "random" => sql.push_str(" ORDER BY RANDOM()"),
-            _ => sql.push_str(" ORDER BY i.\"order\" ASC, i.part ASC"),
+            "random" => {
+                if let Some(seed) = self.random_seed {
+                    let n = push_param(&mut pi, &mut params, seed);
+                    sql.push_str(&format!(
+                        " ORDER BY (i.id * ?{}) % 2147483647, i.part ASC",
+                        n,
+                    ));
+                } else {
+                    sql.push_str(" ORDER BY RANDOM()");
+                }
+            }
+            _ => sql.push_str(" ORDER BY i.img_order ASC, i.part ASC"),
         }
 
         // LIMIT / OFFSET
