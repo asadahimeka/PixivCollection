@@ -19,13 +19,15 @@ async function main(type) {
 
   const imgDir = await fs.readdir(imgDirPath)
   const fileDetails = []
-  for (const item of imgDir) {
+  const total = imgDir.length
+  for (const [index, item] of imgDir.entries()) {
+    const log = (...args) => console.log(`[${index + 1}/${total}]`, ...args)
     const itemPath = join(imgDirPath, item)
     if (/\.(jpg|jpeg|png|gif)$/i.test(item)) {
-      type != 'avif' ? compress(itemPath) : compressToAvif(itemPath)
+      type != 'avif' ? await compress(itemPath, log) : await compressToAvif(itemPath, log)
     }
     if (item.endsWith('.zip')) {
-      await convertUgoira(itemPath)
+      await convertUgoira(itemPath, log)
     }
 
     const stats = await fs.stat(itemPath).catch(() => null)
@@ -58,7 +60,7 @@ async function main(type) {
 /**
  * @param {string} inputFilePath
  */
-function compress(inputFilePath) {
+function compress(inputFilePath, log) {
   // 输入文件和输出文件路径
   // const inputFilePath = 'D:/Desktop/(121003304)水着カズサ.png'; // 输入图片路径
   // const outputFilePath = 'D:/Desktop/(121003304)水着カズサ.webp'; // 输出WebP图片路径
@@ -66,45 +68,51 @@ function compress(inputFilePath) {
 
   if (fs.existsSync(outputFilePath)) return
 
-  console.log('Compressing:', inputFilePath)
+  log('Compressing:', inputFilePath)
 
-  // 使用 sharp 进行转换
-  sharp(inputFilePath)
-    .webp({ quality: 80 }) // 设置WebP的质量，可选参数
-    .toFile(outputFilePath, (err, info) => {
-      if (err) {
-        console.error('Error converting image:', inputFilePath, err)
-        imgErrList.push(inputFilePath)
-      } else {
-        console.log('Image converted successfully:', outputFilePath)
-      }
-    })
+  return new Promise(resolve => {
+    // 使用 sharp 进行转换
+    sharp(inputFilePath)
+      .webp({ quality: 80 }) // 设置WebP的质量，可选参数
+      .toFile(outputFilePath, (err, info) => {
+        if (err) {
+          log('Error converting image:', inputFilePath, err)
+          imgErrList.push(inputFilePath)
+        } else {
+          log('Image converted successfully:', outputFilePath)
+        }
+        resolve()
+      })
+  })
 }
 
-function compressToAvif(inputFilePath) {
+function compressToAvif(inputFilePath, log) {
   const outputFilePath = join(imgDirPath, '../bookmark_avif', inputFilePath.split(/[\\/]/).pop().replace(/\.(jpg|jpeg|png|gif)$/, '.avif'))
 
   if (fs.existsSync(outputFilePath)) return
 
-  console.log('Compressing:', inputFilePath)
+  log('Compressing:', inputFilePath)
 
-  // 使用 sharp 进行转换
-  sharp(inputFilePath)
-    .avif({ quality: 80, lossless: false })
-    .toFile(outputFilePath, (err, info) => {
-      if (err) {
-        console.error('Error converting image:', inputFilePath, err)
-        imgErrList.push(inputFilePath)
-      } else {
-        console.log('Image converted successfully:', outputFilePath)
-      }
-    })
+  return new Promise(resolve => {
+    // 使用 sharp 进行转换
+    sharp(inputFilePath)
+      .avif({ quality: 80, lossless: false })
+      .toFile(outputFilePath, (err, info) => {
+        if (err) {
+          log('Error converting image:', inputFilePath, err)
+          imgErrList.push(inputFilePath)
+        } else {
+          log('Image converted successfully:', outputFilePath)
+        }
+        resolve()
+      })
+  })
 }
 
 /**
  * @param {string} inputFilePath
  */
-async function convertUgoira(inputFilePath) {
+async function convertUgoira(inputFilePath, log) {
   try {
     const filename = inputFilePath.split(/[\\/]/).pop()
     const id = filename.match(/\((\d+)\)/)[1]
@@ -114,7 +122,7 @@ async function convertUgoira(inputFilePath) {
 
     if (fs.existsSync(outputFilePath)) return
 
-    console.log('Converting ugoira:', inputFilePath)
+    log('Converting ugoira:', inputFilePath)
 
     // 加载 ZIP 文件
     const zip = new AdmZip(inputFilePath)
@@ -165,9 +173,9 @@ async function convertUgoira(inputFilePath) {
 
     await fs.remove(unzipDir)
 
-    console.log('Convert ugoira success:', outputFilePath)
+    log('Convert ugoira success:', outputFilePath)
   } catch (err) {
-    console.log(`Convert ugoira err ${inputFilePath}: ${err}`)
+    log(`Convert ugoira err ${inputFilePath}: ${err}`)
     ugoiraErrList.push(inputFilePath)
   }
 }
