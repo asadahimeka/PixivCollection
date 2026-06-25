@@ -128,5 +128,5 @@ pxder/ffmpeg.exe
 pxder/node.exe
 pxder/data/*
 !pxder/data/.gitkeep
-pxder/src/config/
+pxder/src/config/config.json
 scripts/PixivCollection
