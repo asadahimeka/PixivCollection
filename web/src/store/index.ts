@@ -18,6 +18,7 @@ export const useStore = defineStore('main', {
     imagesFiltered: shallowRef<Image[]>([]),
     imagesLoaded: new Set(),
     curPageCursor: 0,
+    randomSeed: 0,
     loadEnd: false,
     isFiltering: false,
 
@@ -120,12 +121,14 @@ export const useStore = defineStore('main', {
         this.loadEnd = false
         this.imagesFiltered = []
         this.isFiltering = true
+        if (this.masonryConfig.imageSortBy === 'random') { this.randomSeed = Math.floor(Math.random() * 2147483647) }
       }
       try {
         const query = this.buildFilterQuery()
         query.offset = this.curPageCursor
         query.limit = 60
         query.sort_by = this.masonryConfig.imageSortBy
+        if (this.masonryConfig.imageSortBy === 'random' && this.randomSeed) { query.random_seed = this.randomSeed }
         const result = await invoke<any>('query_images', {
           query,
         })

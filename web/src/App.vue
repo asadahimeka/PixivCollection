@@ -51,9 +51,29 @@
       <Transition name="fade">
         <div v-if="showModalMsg" class="bookmark-update-msg">
           <pre ref="modalMsgEl" class="bum-cnt" v-html="modalMsg"></pre>
+          <div v-if="reimporting" class="mt-2 text-center text-white">
+            导入进度：{{ reimportProgress.current }} / {{ reimportProgress.total }} 条
+          </div>
           <i class="bum-close" @click="closeMsgModal()">×</i>
         </div>
       </Transition>
+      <div v-if="showingImport" class="import-progress-overlay">
+        <div class="import-progress-box">
+          <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
+          <div class="mt-2 text-center text-lg">首次导入数据到数据库</div>
+          <template v-if="importProgress.total > 0">
+            <div class="mt-2 text-center text-sm text-gray-400">
+              正在导入 {{ importProgress.current }} / {{ importProgress.total }} 条
+            </div>
+            <div class="mt-3 h-2 w-64 overflow-hidden rounded-full bg-gray-600">
+              <div
+                class="h-full rounded-full bg-blue-500 transition-all duration-300"
+                :style="{ width: `${importProgress.current / importProgress.total * 100}%` }"
+              ></div>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -62,6 +82,7 @@
 import { readTextFile, writeTextFile } from '@tauri-apps/api/fs'
 import { open as openFileDialog } from '@tauri-apps/api/dialog'
 import { invoke } from '@tauri-apps/api/tauri'
+import { listen } from '@tauri-apps/api/event'
 import { join } from '@tauri-apps/api/path'
 import { Command } from '@tauri-apps/api/shell'
 
@@ -80,6 +101,11 @@ const {
 
 const loading = ref(true)
 const moreLoading = ref(false)
+const importing = ref(false)
+const showingImport = ref(false)
+const importProgress = ref({ current: 0, total: 0 })
+let unlistenImport: (() => void) | null = null
+let importShowTimer: ReturnType<typeof setTimeout> | null = null
 
 const sentinel = ref<HTMLElement>()
 useIntersectionObserver(sentinel, ([entry]) => {
@@ -105,6 +131,8 @@ async function setImgDir() {
 const modalMsgEl = ref<HTMLElement>()
 const showModalMsg = ref(false)
 const modalMsg = ref('')
+const reimporting = ref(false)
+const reimportProgress = ref({ current: 0, total: 0 })
 watch(modalMsg, () => {
   nextTick(() => {
     modalMsgEl.value?.scrollTo({ top: modalMsgEl.value.scrollHeight })
@@ -138,8 +166,15 @@ async function updateBookmark() {
 
     try {
       modalMsg.value += '\n开始导入数据到数据库...\n'
+
       const ver = (Number(localStorage.getItem('_images_json_version') || '0')) + 1
       localStorage.setItem('_images_json_version', String(ver))
+
+      reimporting.value = true
+      reimportProgress.value = { current: 0, total: 0 }
+      const unlistenReimport = await listen<{ current: number; total: number }>('import-progress', event => {
+        reimportProgress.value = event.payload
+      })
 
       // reimport_db: Rust side reads images.json from disk (no IPC for large JSON),
       // incrementally imports, then refreshes _meta caches
@@ -147,6 +182,9 @@ async function updateBookmark() {
         imgDir: __CONFIG__.imgDir,
         version: ver,
       })
+
+      unlistenReimport()
+      reimporting.value = false
       modalMsg.value += `导入完成：${result.imported} 条新数据，${result.skipped} 条跳过\n`
 
       // Refresh frontend counts from _meta cache
@@ -161,6 +199,7 @@ async function updateBookmark() {
 
       modalMsg.value += '数据库已更新\n'
     } catch (err) {
+      reimporting.value = false
       modalMsg.value += `<br><div style="color:#ff6565">导入失败: ${err}</div>`
     }
   })
@@ -276,10 +315,28 @@ async function init() {
         }
       }
       const verStr = localStorage.getItem('_images_json_version')
+
+      importing.value = true
+      showingImport.value = false
+      importProgress.value = { current: 0, total: 0 }
+      importShowTimer = setTimeout(() => {
+        if (importing.value) showingImport.value = true
+      }, 1000)
+      unlistenImport = await listen<{ current: number; total: number }>('import-progress', event => {
+        importProgress.value = event.payload
+      })
+
       const ensureResult = await invoke<{ status: string }>('ensure_db', {
         imgDir: __CONFIG__.imgDir,
         version: verStr ? Number(verStr) : null,
       })
+
+      if (importShowTimer) { clearTimeout(importShowTimer); importShowTimer = null }
+      unlistenImport?.()
+      unlistenImport = null
+      showingImport.value = false
+      importing.value = false
+
       // Populate full (unfiltered) counts for the sidebar "总计" row
       // Read cached full counts from _meta (instant, no aggregate SQL)
       if (ensureResult.status !== 'no_data') {
@@ -302,6 +359,13 @@ async function init() {
     modalMsg.value += `<br><div style="color:#ff6565">${msg}</div>`
   } finally {
     loading.value = false
+    importing.value = false
+    showingImport.value = false
+    if (importShowTimer) { clearTimeout(importShowTimer); importShowTimer = null }
+    if (unlistenImport) {
+      unlistenImport()
+      unlistenImport = null
+    }
     setTimeout(() => {
       isInit.value = true
     }, 500)
@@ -367,5 +431,23 @@ body:has(.bookmark-update-msg) {
   font-family: SimSun, monospace;
   font-weight: bold;
   cursor: pointer;
+}
+
+.import-progress-overlay {
+  position: fixed;
+  z-index: 200;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.import-progress-box {
+  text-align: center;
+  color: white;
 }
 </style>
