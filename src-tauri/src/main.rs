@@ -430,6 +430,51 @@ fn get_statistics(
     stats::compute_statistics(&conn, &filter)
 }
 
+/// Fetch a single image by its ID (part=0, with tags).
+#[tauri::command]
+fn get_image_by_id(id: i64) -> Result<query::ImageRow, String> {
+    let conn = db::get_conn()?;
+
+    // ---- Query the image ----
+    let sql = concat!(
+        "SELECT i.id, i.part, i.len, i.title, i.width, i.height, i.ext, ",
+        "i.author_id, i.author_name, i.author_account, i.bookmark, i.view, ",
+        "i.created_at, i.sanity_level, i.x_restrict, i.is_ai, ",
+        "i.img_s, i.img_m, i.img_l, i.img_o FROM images i ",
+        "WHERE i.id = ?1 AND i.part = 0",
+    );
+    let mut img: query::ImageRow = {
+        let mut stmt = conn.prepare(&sql).map_err(|e| format!("Prepare: {e}"))?;
+        stmt.query_row(rusqlite::params![id], query::image_row_from_row)
+            .map_err(|e| format!("Query image {id}: {e}"))?
+    };
+
+    // ---- Fetch tags (all pages of this id share the same tags) ----
+    let tag_sql = concat!(
+        "SELECT t.name, t.translated_name FROM tags t ",
+        "JOIN image_tags it ON it.tag_id = t.id ",
+        "WHERE it.image_id = ?1 AND it.image_part = 0",
+    );
+    {
+        let mut tag_stmt = conn.prepare(&tag_sql).map_err(|e| format!("Tag prepare: {e}"))?;
+        let tag_rows = tag_stmt
+            .query_map(rusqlite::params![id], |row| {
+                Ok(query::ImageTag {
+                    name: row.get("name")?,
+                    translated_name: row.get("translated_name")?,
+                })
+            })
+            .map_err(|e| format!("Tag query: {e}"))?;
+        let mut tags = Vec::new();
+        for row in tag_rows {
+            tags.push(row.map_err(|e| format!("Tag row: {e}"))?);
+        }
+        img.tags = tags;
+    }
+
+    Ok(img)
+}
+
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
@@ -454,6 +499,7 @@ async fn main() {
             search_tags,
             import_json_to_db,
             get_statistics,
+            get_image_by_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
