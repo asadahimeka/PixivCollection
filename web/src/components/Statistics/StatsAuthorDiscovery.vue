@@ -76,17 +76,15 @@
           v-show="!collapsed[group.year]"
           class="ml-[46px] space-y-0.5 pb-4"
         >
-          <a
+          <div
             v-for="author in group.authors"
             :key="author.author_id"
-            :href="userLink(author.author_id)"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="group flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-blue-50/60 dark:hover:bg-blue-900/10"
+            class="group flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-blue-50/60 dark:hover:bg-blue-900/10"
+            @click="emit('viewAuthor', author.author_id)"
           >
             <div class="flex min-w-0 items-center gap-2">
               <span class="truncate text-sm font-medium text-blue-600 transition-colors group-hover:text-blue-800 dark:text-blue-400 dark:group-hover:text-blue-300">
-                {{ author.author_name }}
+                {{ author.author_name || '(佚名)' }}
               </span>
               <span class="shrink-0 text-xs text-gray-400 dark:text-gray-500">
                 @{{ author.author_account }}
@@ -95,7 +93,7 @@
             <span class="ml-2 shrink-0 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
               作品数 {{ author.works_count }} 件
             </span>
-          </a>
+          </div>
         </div>
       </div>
     </div>
@@ -104,7 +102,6 @@
 
 <script setup lang="ts">
 import { useStore } from '@/store'
-import { LINK_PIXIV_USER } from '@/config'
 
 interface AuthorDiscovery {
   author_id: number
@@ -123,6 +120,10 @@ const props = defineProps<{
   authorDiscovery: AuthorDiscovery[]
 }>()
 
+const emit = defineEmits<{
+  viewAuthor: [id: number]
+}>()
+
 const store = useStore()
 
 const isDark = computed(() => store.colorScheme === 'dark')
@@ -139,7 +140,7 @@ const groups = computed<YearGroup[]>(() => {
     }
   }
   return Array.from(map.entries())
-    .map(([year, authors]) => ({ year, authors }))
+    .map(([year, authors]) => ({ year, authors: authors.slice(0, 100) }))
     .sort((a, b) => b.year - a.year)
 })
 
@@ -150,7 +151,4 @@ function toggleYear(year: number): void {
   collapsed[year] = !collapsed[year]
 }
 
-function userLink(id: number): string {
-  return LINK_PIXIV_USER.replace('{id}', String(id))
-}
 </script>
