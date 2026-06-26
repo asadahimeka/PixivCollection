@@ -15,12 +15,14 @@
     "@tauri-apps/api": "^1.5.3",
     "@vueuse/core": "^10.9.0",
     "chart.js": "^4.5.1",
+    "d3-cloud": "^1.2.9",
     "pinia": "^2.1.7",
     "vue": "^3.4.26",
     "vue-chartjs": "^5.3.3"
   },
   "devDependencies": {
     "@antfu/eslint-config-vue": "0.26.2",
+    "@types/d3-cloud": "^1.2.9",
     "@types/node": "^20.10.5",
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.19",
