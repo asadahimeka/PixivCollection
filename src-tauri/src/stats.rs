@@ -150,6 +150,7 @@ pub struct AiTrendItem {
 pub struct TagTrendItem {
     pub year: i32,
     pub tag_name: String,
+    pub translated_name: Option<String>,
     pub count: i64,
 }
 
@@ -756,7 +757,7 @@ pub fn compute_statistics(
             };
 
             let trend_sql = format!(
-                "SELECT t.name as tag_name, \
+                "SELECT t.name as tag_name, t.translated_name, \
                         CAST(substr(i.created_at,1,4) AS INTEGER) as year, \
                         COUNT(DISTINCT i.id) as count \
                  FROM images i \
@@ -776,6 +777,7 @@ pub fn compute_statistics(
                     Ok(TagTrendItem {
                         year: row.get("year")?,
                         tag_name: row.get("tag_name")?,
+                        translated_name: row.get("translated_name")?,
                         count: row.get("count")?,
                     })
                 })
@@ -813,7 +815,9 @@ pub fn compute_statistics(
                 CAST(substr(MIN(i.created_at),1,4) AS INTEGER) as first_year, \
                 COUNT(DISTINCT i.id) as works_count \
          FROM images i WHERE {} \
-         GROUP BY i.author_id ORDER BY first_year DESC LIMIT 100",
+         GROUP BY i.author_id \
+         HAVING COUNT(DISTINCT i.id) >= 10 \
+         ORDER BY first_year DESC, works_count DESC",
         where_clause,
     );
     let author_discovery: Vec<AuthorDiscovery> = query_vec!(
