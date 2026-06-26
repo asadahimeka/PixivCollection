@@ -2,7 +2,7 @@
   <Transition name="fade">
     <div
       v-show="imageViewer.show"
-      class="_backdrop_cont fixed left-0 top-0 h-screen w-full bg-black/50 backdrop-blur-lg"
+      class="_backdrop_cont fixed left-0 top-0 z-[60] h-screen w-full bg-black/50 backdrop-blur-lg"
       @click="handleBackClick"
       @wheel.prevent="handleWheelScroll"
     >
