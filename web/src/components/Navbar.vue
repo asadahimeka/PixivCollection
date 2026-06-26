@@ -94,6 +94,17 @@
         <CButton class="mr-2 h-[40px]" @click="emit('updatebookmark')">更新收藏</CButton>
         <button
           class="h-[60px] w-[60px] hover:bg-gray-400/20"
+          title="统计"
+          @click="$emit('openStats')"
+        >
+          <svg class="mx-auto h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="13" width="4" height="8" rx="1"></rect>
+            <rect x="10" y="9" width="4" height="12" rx="1"></rect>
+            <rect x="17" y="5" width="4" height="16" rx="1"></rect>
+          </svg>
+        </button>
+        <button
+          class="h-[60px] w-[60px] hover:bg-gray-400/20"
           @click="openGithub"
         >
           <IconGithub class="mx-auto h-6 w-6" />
@@ -124,7 +135,7 @@ import { invoke } from '@tauri-apps/api/tauri'
 import { useStore } from '@/store'
 import { LINK_GITHUB, NAVBAR_HIDE_DISTANCE } from '@/config'
 
-const emit = defineEmits(['updatebookmark'])
+const emit = defineEmits(['updatebookmark', 'openStats'])
 
 const store = useStore()
 const { preferColorScheme, showSidebar, showNav, imageViewer, isFullscreen, filterConfig } = toRefs(store)

@@ -3,7 +3,7 @@
     <div class="min-h-screen transition-colors dark:bg-[#1a1a1a] dark:text-white">
       <Sidebar />
       <SidebarMask />
-      <Navbar @updatebookmark="updateBookmark()" />
+      <Navbar @updatebookmark="updateBookmark()" @open-stats="showStatsModal = true; fetchStatistics()" />
       <template v-if="!store.imagesFiltered.length">
         <Tip v-if="loading || store.isFiltering">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
@@ -52,7 +52,8 @@
         <div v-if="showModalMsg" class="bookmark-update-msg">
           <pre ref="modalMsgEl" class="bum-cnt" v-html="modalMsg"></pre>
           <div v-if="reimporting" class="mt-2 text-center text-white">
-            导入进度：{{ reimportProgress.current }} / {{ reimportProgress.total }} 条
+            <div v-if="reimportStage" class="mb-1">{{ reimportStage }}</div>
+            <div>导入进度：{{ reimportProgress.current }} / {{ reimportProgress.total }} 条</div>
           </div>
           <i class="bum-close" @click="closeMsgModal()">×</i>
         </div>
@@ -60,7 +61,7 @@
       <div v-if="showingImport" class="import-progress-overlay">
         <div class="import-progress-box">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
-          <div class="mt-2 text-center text-lg">首次导入数据到数据库</div>
+          <div class="mt-2 text-center text-lg">{{ importStage }}</div>
           <template v-if="importProgress.total > 0">
             <div class="mt-2 text-center text-sm text-gray-400">
               正在导入 {{ importProgress.current }} / {{ importProgress.total }} 条
@@ -74,6 +75,76 @@
           </template>
         </div>
       </div>
+
+      <!-- Statistics Modal -->
+      <StatsModal
+        :show="showStatsModal"
+        :stats="statsData"
+        :loading="statsLoading"
+        :error="statsError"
+        @close="showStatsModal = false"
+        @apply-filter="fetchStatistics"
+        @retry="fetchStatistics"
+      >
+        <div v-if="statsData" class="space-y-8">
+          <section>
+            <StatsOverview
+              :overview="statsData.overview"
+              :author-ranking="statsData.author_ranking"
+              :r18-ratio="statsData.r18_ratio"
+              :ai-ratio="statsData.ai_ratio"
+            />
+          </section>
+          <section>
+            <StatsAuthorChart :authors="statsData.author_ranking" />
+          </section>
+          <section>
+            <StatsTagChart :tags="statsData.tag_ranking" />
+          </section>
+          <section>
+            <StatsDistribution
+              :bookmark-dist="statsData.bookmark_distribution"
+              :view-dist="statsData.view_distribution"
+            />
+          </section>
+          <section>
+            <StatsTimeChart :yearly="statsData.yearly_trend" />
+          </section>
+          <section>
+            <StatsPieSection
+              :r18-ratio="statsData.r18_ratio"
+              :ai-ratio="statsData.ai_ratio"
+              :shape-dist="statsData.shape_distribution"
+              :sanity-levels="statsData.sanity_levels"
+            />
+          </section>
+          <section>
+            <StatsTopLists
+              :top-bookmarked="statsData.top_bookmarked"
+              :top-viewed="statsData.top_viewed"
+              :hidden-gems="statsData.hidden_gems"
+            />
+          </section>
+          <section>
+            <StatsAuthorDistribution :author-dist="statsData.author_works_distribution" />
+          </section>
+          <section>
+            <StatsWordCloud :tags="statsData.tag_ranking" />
+          </section>
+          <section>
+            <StatsR18AiTrend
+              :r18-trend="statsData.r18_trend"
+              :ai-trend="statsData.ai_trend"
+            />
+          </section>
+          <section>
+            <StatsTagTrend :tag-trend="statsData.tag_trend" />
+          </section>
+          <section>
+            <StatsAuthorDiscovery :author-discovery="statsData.author_discovery" />
+          </section>
+        </div>
+      </StatsModal>
     </div>
   </div>
 </template>
@@ -90,6 +161,20 @@ import { SettingType } from '@orilight/vue-settings'
 import { useDebounceFn, useIntersectionObserver } from '@vueuse/core'
 import { useStore } from '@/store'
 
+import StatsModal from '@/components/Statistics/StatsModal.vue'
+import StatsOverview from '@/components/Statistics/StatsOverview.vue'
+import StatsAuthorChart from '@/components/Statistics/StatsAuthorChart.vue'
+import StatsTagChart from '@/components/Statistics/StatsTagChart.vue'
+import StatsTimeChart from '@/components/Statistics/StatsTimeChart.vue'
+import StatsDistribution from '@/components/Statistics/StatsDistribution.vue'
+import StatsPieSection from '@/components/Statistics/StatsPieSection.vue'
+import StatsTopLists from '@/components/Statistics/StatsTopLists.vue'
+import StatsAuthorDistribution from '@/components/Statistics/StatsAuthorDistribution.vue'
+import StatsWordCloud from '@/components/Statistics/StatsWordCloud.vue'
+import StatsR18AiTrend from '@/components/Statistics/StatsR18AiTrend.vue'
+import StatsTagTrend from '@/components/Statistics/StatsTagTrend.vue'
+import StatsAuthorDiscovery from '@/components/Statistics/StatsAuthorDiscovery.vue'
+
 const store = useStore()
 
 const {
@@ -104,8 +189,98 @@ const moreLoading = ref(false)
 const importing = ref(false)
 const showingImport = ref(false)
 const importProgress = ref({ current: 0, total: 0 })
+const importStage = ref('首次导入数据到数据库')
 let unlistenImport: (() => void) | null = null
 let importShowTimer: ReturnType<typeof setTimeout> | null = null
+
+// ---- Statistics types (matches Rust backend) ----
+interface StatsOverviewData {
+  total_illustrations: number
+  total_authors: number
+  total_tags: number
+  year_range: [number, number]
+}
+interface AuthorStatsData {
+  author_id: number
+  author_name: string
+  author_account: string
+  illustration_count: number
+  total_bookmarks: number
+  total_views: number
+}
+interface TagStatsData {
+  name: string
+  translated_name: string | null
+  count: number
+}
+interface DistributionBucketData {
+  label: string
+  min: number
+  max: number | null
+  count: number
+}
+interface YearlyStatsData {
+  year: number
+  count: number
+  avg_bookmark: number
+  avg_view: number
+}
+interface R18RatioData { safe: number; r18: number; r18g: number }
+interface AiRatioData { ai: number; non_ai: number }
+interface ShapeBucketData { shape: string; count: number }
+interface TopWorkData { id: number; title: string; value: number; author_name: string }
+interface AuthorBucketData { label: string; count: number }
+interface R18TrendItemData { year: number; x_restrict: number; count: number }
+interface AiTrendItemData { year: number; is_ai: boolean; count: number }
+interface TagTrendItemData { year: number; tag_name: string; count: number }
+interface HiddenGemData { id: number; title: string; author_name: string; bookmark: number; view: number; ratio: number }
+interface AuthorDiscoveryData { author_id: number; author_name: string; author_account: string; first_year: number; works_count: number }
+interface SanityLevelBucketData { level: number; count: number }
+interface StatisticsResultData {
+  overview: StatsOverviewData
+  author_ranking: AuthorStatsData[]
+  tag_ranking: TagStatsData[]
+  bookmark_distribution: DistributionBucketData[]
+  view_distribution: DistributionBucketData[]
+  yearly_trend: YearlyStatsData[]
+  r18_ratio: R18RatioData
+  ai_ratio: AiRatioData
+  shape_distribution: ShapeBucketData[]
+  top_bookmarked: TopWorkData[]
+  top_viewed: TopWorkData[]
+  author_works_distribution: AuthorBucketData[]
+  r18_trend: R18TrendItemData[]
+  ai_trend: AiTrendItemData[]
+  tag_trend: TagTrendItemData[]
+  hidden_gems: HiddenGemData[]
+  author_discovery: AuthorDiscoveryData[]
+  sanity_levels: SanityLevelBucketData[]
+}
+
+const showStatsModal = ref(false)
+const statsData = ref<StatisticsResultData | null>(null)
+const statsLoading = ref(false)
+const statsError = ref<string | null>(null)
+
+async function fetchStatistics(filter?: { year_min?: number | null; year_max?: number | null; r18?: string | null; is_ai?: boolean | null }) {
+  statsLoading.value = true
+  statsError.value = null
+  try {
+    const result = await invoke('get_statistics', {
+      yearMin: filter?.year_min ?? null,
+      yearMax: filter?.year_max ?? null,
+      r18: filter?.r18 ?? null,
+      isAi: filter?.is_ai ?? null,
+    })
+    statsData.value = result as unknown as StatisticsResultData
+  } catch (e) {
+    console.error('Statistics fetch failed:', e)
+    statsData.value = null
+    statsError.value = String(e)
+  } finally {
+    statsLoading.value = false
+  }
+}
 
 const sentinel = ref<HTMLElement>()
 useIntersectionObserver(sentinel, ([entry]) => {
@@ -133,6 +308,7 @@ const showModalMsg = ref(false)
 const modalMsg = ref('')
 const reimporting = ref(false)
 const reimportProgress = ref({ current: 0, total: 0 })
+const reimportStage = ref('')
 watch(modalMsg, () => {
   nextTick(() => {
     modalMsgEl.value?.scrollTo({ top: modalMsgEl.value.scrollHeight })
@@ -172,8 +348,13 @@ async function updateBookmark() {
 
       reimporting.value = true
       reimportProgress.value = { current: 0, total: 0 }
-      const unlistenReimport = await listen<{ current: number; total: number }>('import-progress', event => {
-        reimportProgress.value = event.payload
+      reimportStage.value = ''
+      const unlistenReimport = await listen<{ current?: number; total?: number; stage?: string }>('import-progress', event => {
+        if (event.payload.stage) {
+          reimportStage.value = event.payload.stage
+        } else if (event.payload.current !== undefined && event.payload.total !== undefined) {
+          reimportProgress.value = { current: event.payload.current, total: event.payload.total }
+        }
       })
 
       // reimport_db: Rust side reads images.json from disk (no IPC for large JSON),
@@ -322,8 +503,12 @@ async function init() {
       importShowTimer = setTimeout(() => {
         if (importing.value) showingImport.value = true
       }, 1000)
-      unlistenImport = await listen<{ current: number; total: number }>('import-progress', event => {
-        importProgress.value = event.payload
+      unlistenImport = await listen<{ current?: number; total?: number; stage?: string }>('import-progress', event => {
+        if (event.payload.stage) {
+          importStage.value = event.payload.stage
+        } else if (event.payload.current !== undefined && event.payload.total !== undefined) {
+          importProgress.value = { current: event.payload.current, total: event.payload.total }
+        }
       })
 
       const ensureResult = await invoke<{ status: string }>('ensure_db', {
