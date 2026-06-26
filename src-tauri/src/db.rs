@@ -231,18 +231,24 @@ fn import_in_transaction(
             )
             .map_err(|e| format!("Failed to insert image {id} p{part}: {e}"))?;
 
-        if rows > 0 {
-            imported += 1;
-        } else {
-            skipped += 1;
-            // Image already exists – skip tag processing (links already present)
-            continue;
-        }
-
         if total >= 50 && idx % 100 == 0 {
             if let Some(cb) = on_progress {
                 cb(idx + 1, total);
             }
+        }
+
+        if rows > 0 {
+            imported += 1;
+        } else {
+            // Image already exists – update img_order to match current images.json order
+            tx.execute(
+                "UPDATE images SET img_order = ?1 WHERE id = ?2 AND part = ?3 AND img_order != ?1",
+                params![img_order, id, part],
+            )
+            .map_err(|e| format!("Failed to update img_order for {id} p{part}: {e}"))?;
+            skipped += 1;
+            // skip tag processing (links already present)
+            continue;
         }
 
         if let Some(tags) = item["tags"].as_array() {
@@ -299,10 +305,13 @@ fn import_in_transaction(
 ///
 /// When `on_progress` is provided, it is forwarded to `import_in_transaction`
 /// for periodic progress feedback during the import loop.
+/// When `on_stage` is provided, it is called before each post-import stage
+/// (index creation, cache refresh) so the frontend can show descriptive text.
 pub fn ensure_db(
     img_dir: &str,
     version: Option<i64>,
     on_progress: Option<&dyn Fn(usize, usize)>,
+    on_stage: Option<&dyn Fn(&str)>,
 ) -> Result<EnsureDbResult, String> {
     let data_dir = format!("{img_dir}/data");
     let db_path = format!("{data_dir}/images.db");
@@ -355,6 +364,7 @@ pub fn ensure_db(
                     .unwrap_or(false);
 
                 if !indexes_done {
+                    if let Some(cb) = &on_stage { cb("正在创建索引..."); }
                     let writer = get_writer()?;
                     create_indexes(&writer)?;
                     writer
@@ -383,6 +393,7 @@ pub fn ensure_db(
                     .unwrap_or(true);
 
                 if cache_missing {
+                    if let Some(cb) = &on_stage { cb("正在刷新缓存..."); }
                     refresh_caches(img_dir, version)?;
                 }
 
@@ -422,6 +433,7 @@ pub fn ensure_db(
         .map_err(|e| format!("Failed to commit transaction: {e}"))?;
 
     // Create indexes after bulk insert for performance.
+    if let Some(cb) = &on_stage { cb("正在创建索引..."); }
     create_indexes(&conn)?;
 
     conn.execute_batch("ANALYZE;")
@@ -443,6 +455,7 @@ pub fn ensure_db(
     drop(conn); // release writer before refresh_caches
 
     // Refresh caches & store json_version
+    if let Some(cb) = &on_stage { cb("正在刷新缓存..."); }
     refresh_caches(img_dir, version)?;
 
     Ok(EnsureDbResult {
@@ -610,10 +623,12 @@ pub fn refresh_caches(img_dir: &str, version: Option<i64>) -> Result<(), String>
 ///
 /// When `on_progress` is provided, it is forwarded to `import_in_transaction`
 /// for periodic progress feedback during the import loop.
+/// When `on_stage` is provided, it is called before post-import index creation.
 pub fn import_json_to_db_logic(
     img_dir: &str,
     json_content: &str,
     on_progress: Option<&dyn Fn(usize, usize)>,
+    on_stage: Option<&dyn Fn(&str)>,
 ) -> Result<ImportResult, String> {
     // Lazy-init if this is called before ensure_db
     if DB_READER.get().is_none() {
@@ -637,6 +652,7 @@ pub fn import_json_to_db_logic(
         .map_err(|e| format!("Failed to commit transaction: {e}"))?;
 
     // Idempotent – no-op if indexes already exist.
+    if let Some(cb) = &on_stage { cb("正在创建索引..."); }
     create_indexes(&conn)?;
 
     Ok(result)

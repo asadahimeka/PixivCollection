@@ -5,6 +5,7 @@
 
 mod db;
 mod query;
+mod stats;
 
 use rusqlite::types::ToSql;
 use tauri::Manager;
@@ -63,7 +64,13 @@ fn ensure_db(app: tauri::AppHandle, img_dir: String, version: Option<i64>) -> Re
             serde_json::json!({ "current": current, "total": total }),
         );
     };
-    db::ensure_db(&img_dir, version, Some(&emit))
+    let emit_stage = |stage: &str| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "stage": stage }),
+        );
+    };
+    db::ensure_db(&img_dir, version, Some(&emit), Some(&emit_stage))
 }
 
 /// Paginated, filtered image query against the SQLite database.
@@ -236,7 +243,14 @@ fn reimport_db(app: tauri::AppHandle, img_dir: String, version: Option<i64>) -> 
             serde_json::json!({ "current": current, "total": total }),
         );
     };
-    let result = db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit))?;
+    let emit_stage = |stage: &str| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "stage": stage }),
+        );
+    };
+    let result = db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit), Some(&emit_stage))?;
+    emit_stage("正在刷新缓存...");
     db::refresh_caches(&img_dir, version)?;
     Ok(result)
 }
@@ -394,7 +408,26 @@ fn import_json_to_db(
             serde_json::json!({ "current": current, "total": total }),
         );
     };
-    db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit))
+    let emit_stage = |stage: &str| {
+        let _ = app.emit_all(
+            "import-progress",
+            serde_json::json!({ "stage": stage }),
+        );
+    };
+    db::import_json_to_db_logic(&img_dir, &json_content, Some(&emit), Some(&emit_stage))
+}
+
+/// Compute bookmark statistics with optional filters.
+#[tauri::command]
+fn get_statistics(
+    year_min: Option<i32>,
+    year_max: Option<i32>,
+    r18: Option<String>,
+    is_ai: Option<bool>,
+) -> Result<stats::StatisticsResult, String> {
+    let conn = db::get_conn()?;
+    let filter = stats::StatsFilter { year_min, year_max, r18, is_ai };
+    stats::compute_statistics(&conn, &filter)
 }
 
 #[tokio::main]
@@ -420,6 +453,7 @@ async fn main() {
             get_filter_options,
             search_tags,
             import_json_to_db,
+            get_statistics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
