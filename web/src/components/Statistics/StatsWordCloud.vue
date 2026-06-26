@@ -7,7 +7,7 @@
       v-if="layoutWords.length > 0"
       ref="containerRef"
       class="relative flex items-center justify-center"
-      :style="{ height: containerHeight + 'px' }"
+      :style="{ height: `${containerHeight}px` }"
     >
       <svg
         v-if="svgSize.width > 0"
@@ -109,8 +109,21 @@ function tagColor(index: number): string {
   return palette[index % palette.length]
 }
 
+interface LayoutWord {
+  text: string
+  size: number
+  color: string
+  x: number
+  y: number
+  rotate: number
+  font: string
+  weight?: string | number
+  style?: string
+  padding?: number
+}
+
 // Cloud layout state
-const layoutWords = ref<cloud.Word[]>([])
+const layoutWords = ref<LayoutWord[]>([])
 const svgSize = reactive({ width: 0, height: 0 })
 
 function computeSvgSize() {
@@ -147,7 +160,12 @@ function layoutCloud() {
     .font('system-ui, sans-serif')
     .spiral('archimedean')
     .on('end', (placed: cloud.Word[]) => {
-      layoutWords.value = placed
+      const colorByText = new Map(words.map(w => [w.text, w.color]))
+      layoutWords.value = placed.map(w => ({
+        ...w,
+        text: w.text ?? '',
+        color: colorByText.get(w.text ?? '') ?? '#888',
+      })) as LayoutWord[]
     })
     .start()
 }
