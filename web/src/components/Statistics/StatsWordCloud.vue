@@ -4,7 +4,6 @@
       标签词云
     </h3>
     <div
-      v-if="layoutWords.length > 0"
       ref="containerRef"
       class="relative flex items-center justify-center"
       :style="{ height: `${containerHeight}px` }"
