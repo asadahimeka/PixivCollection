@@ -178,19 +178,19 @@
                 {{ index + 1 }}
               </span>
             </td>
-              <td class="max-w-0 px-3 py-2">
-                <span
-                  class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  :title="item.title"
-                  @click="emit('viewArtwork', item.id)"
-                >
-                  {{ item.title }}
-                </span>
-              </td>
-              <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
-                {{ item.author_name || '(佚名)' }}
-              </td>
-              <td class="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">
+            <td class="max-w-0 px-3 py-2">
+              <span
+                class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                :title="item.title"
+                @click="emit('viewArtwork', item.id)"
+              >
+                {{ item.title }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
+              {{ item.author_name || '(佚名)' }}
+            </td>
+            <td class="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">
               {{ formatNumber(item.bookmark) }}
             </td>
             <td class="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">

@@ -150,5 +150,4 @@ const collapsed = reactive<Record<number, boolean>>({})
 function toggleYear(year: number): void {
   collapsed[year] = !collapsed[year]
 }
-
 </script>

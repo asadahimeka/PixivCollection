@@ -3,7 +3,7 @@
     <div class="min-h-screen transition-colors dark:bg-[#1a1a1a] dark:text-white">
       <Sidebar />
       <SidebarMask />
-      <Navbar @updatebookmark="updateBookmark()"         @open-stats="showStatsModal = true; statsData.value === null && fetchStatistics()" />
+      <Navbar @updatebookmark="updateBookmark()" @open-stats="openStatsModal()" />
       <template v-if="!store.imagesFiltered.length">
         <Tip v-if="loading || store.isFiltering">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
@@ -313,6 +313,13 @@ async function handleViewArtwork(id: number) {
     store.openImageViewer(img, () => {}, () => {}, -1)
   } catch (e) {
     console.error('Failed to open artwork:', e)
+  }
+}
+
+function openStatsModal() {
+  showStatsModal.value = true
+  if (statsData.value === null) {
+    fetchStatistics()
   }
 }
 

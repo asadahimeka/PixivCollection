@@ -75,7 +75,7 @@
               </td>
               <td class="max-w-0 px-3 py-2">
                 <span
-                  class="block truncate text-blue-600 cursor-pointer transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   :title="author.author_name"
                   @click="emit('viewAuthor', author.author_id)"
                 >
@@ -103,7 +103,6 @@
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, registerables } from 'chart.js'
 import { useStore } from '@/store'
-
 
 const props = defineProps<{
   authors: AuthorStats[]

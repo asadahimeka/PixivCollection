@@ -15,8 +15,8 @@
         :key="tag"
         class="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-80"
         :class="hiddenTags.has(tag) ? 'opacity-40' : 'opacity-90'"
-        @click="toggleTag(tag)"
         :title="tagTranslatedName(tag)"
+        @click="toggleTag(tag)"
       >
         <span
           class="inline-block h-2.5 w-2.5 rounded-sm"

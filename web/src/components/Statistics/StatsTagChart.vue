@@ -28,10 +28,10 @@
                 排名
               </th>
               <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
-                 原名
+                原名
               </th>
               <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
-                 译名
+                译名
               </th>
               <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
                 出现次数
