@@ -44,19 +44,16 @@
                 </span>
               </td>
               <td class="max-w-0 px-3 py-2">
-                <a
-                  :href="artworkLink(item.id)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                <span
+                  class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   :title="item.title"
-                  @click.prevent="openArtwork(item.id)"
+                  @click="emit('viewArtwork', item.id)"
                 >
                   {{ item.title }}
-                </a>
+                </span>
               </td>
               <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
-                {{ item.author_name }}
+                {{ item.author_name || '(佚名)' }}
               </td>
               <td class="px-3 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
                 {{ formatNumber(item.value) }}
@@ -111,19 +108,16 @@
                 </span>
               </td>
               <td class="max-w-0 px-3 py-2">
-                <a
-                  :href="artworkLink(item.id)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                <span
+                  class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   :title="item.title"
-                  @click.prevent="openArtwork(item.id)"
+                  @click="emit('viewArtwork', item.id)"
                 >
                   {{ item.title }}
-                </a>
+                </span>
               </td>
               <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
-                {{ item.author_name }}
+                {{ item.author_name || '(佚名)' }}
               </td>
               <td class="px-3 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
                 {{ formatNumber(item.value) }}
@@ -184,22 +178,19 @@
                 {{ index + 1 }}
               </span>
             </td>
-            <td class="max-w-0 px-3 py-2">
-              <a
-                :href="artworkLink(item.id)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="block truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                :title="item.title"
-                @click.prevent="openArtwork(item.id)"
-              >
-                {{ item.title }}
-              </a>
-            </td>
-            <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
-              {{ item.author_name }}
-            </td>
-            <td class="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">
+              <td class="max-w-0 px-3 py-2">
+                <span
+                  class="block cursor-pointer truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  :title="item.title"
+                  @click="emit('viewArtwork', item.id)"
+                >
+                  {{ item.title }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
+                {{ item.author_name || '(佚名)' }}
+              </td>
+              <td class="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">
               {{ formatNumber(item.bookmark) }}
             </td>
             <td class="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-400">
@@ -216,8 +207,6 @@
 </template>
 
 <script setup lang="ts">
-import { LINK_PIXIV_ARTWORK } from '@/config'
-
 interface TopWork {
   id: number
   title: string
@@ -240,6 +229,10 @@ const props = defineProps<{
   hiddenGems?: HiddenGem[]
 }>()
 
+const emit = defineEmits<{
+  viewArtwork: [id: number]
+}>()
+
 function rankRowBg(index: number): string {
   if (index === 0) return 'bg-amber-50 dark:bg-amber-900/20'
   if (index === 1) return 'bg-slate-50 dark:bg-slate-700/20'
@@ -252,14 +245,6 @@ function rankBadgeClass(index: number): string {
   if (index === 1) return 'bg-slate-400 text-white dark:bg-slate-500'
   if (index === 2) return 'bg-orange-400 text-white dark:bg-orange-500'
   return 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
-}
-
-function artworkLink(id: number): string {
-  return LINK_PIXIV_ARTWORK.replace('{id}', String(id))
-}
-
-function openArtwork(id: number): void {
-  window.open(artworkLink(id), '_blank')
 }
 
 function formatNumber(n: number): string {
