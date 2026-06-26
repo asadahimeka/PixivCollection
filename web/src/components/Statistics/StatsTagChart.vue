@@ -28,7 +28,10 @@
                 排名
               </th>
               <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
-                标签名
+                 原名
+              </th>
+              <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
+                 译名
               </th>
               <th class="sticky top-0 z-10 bg-white px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:bg-[#242424] dark:text-gray-400">
                 出现次数
@@ -45,8 +48,14 @@
               <td class="px-4 py-2 text-gray-500 dark:text-gray-400">
                 {{ index + 1 }}
               </td>
-              <td class="px-4 py-2 text-gray-900 dark:text-gray-100">
-                {{ tag.translated_name || tag.name }}
+              <td
+                class="cursor-pointer px-4 py-2 text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                @click="emit('viewTag', tag.name)"
+              >
+                {{ tag.name }}
+              </td>
+              <td class="px-4 py-2 text-gray-500 dark:text-gray-400">
+                {{ tag.translated_name || '-' }}
               </td>
               <td class="px-4 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
                 {{ formatCount(tag.count) }}
@@ -54,7 +63,7 @@
             </tr>
             <tr v-if="tags.length === 0">
               <td
-                colspan="3"
+                colspan="4"
                 class="px-4 py-8 text-center text-gray-400"
               >
                 暂无标签数据
@@ -76,6 +85,10 @@ const props = defineProps<{
   tags: TagStats[]
 }>()
 
+const emit = defineEmits<{
+  viewTag: [name: string]
+}>()
+
 ChartJS.register(...registerables)
 
 interface TagStats {
@@ -91,9 +104,8 @@ const isDark = computed(() => store.colorScheme === 'dark')
 
 const chartData = computed(() => {
   const top = props.tags.slice(0, 30)
-  // reverse so highest count is at top of horizontal bar chart
-  const labels = top.map(t => t.translated_name || t.name).reverse()
-  const counts = top.map(t => t.count).reverse()
+  const labels = top.map(t => t.name)
+  const counts = top.map(t => t.count)
 
   return {
     labels,
