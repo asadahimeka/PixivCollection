@@ -3,7 +3,7 @@
     <div class="min-h-screen transition-colors dark:bg-[#1a1a1a] dark:text-white">
       <Sidebar />
       <SidebarMask />
-      <Navbar @updatebookmark="updateBookmark()" @open-stats="showStatsModal = true; fetchStatistics()" />
+      <Navbar @updatebookmark="updateBookmark()"         @open-stats="showStatsModal = true; statsData.value === null && fetchStatistics()" />
       <template v-if="!store.imagesFiltered.length">
         <Tip v-if="loading || store.isFiltering">
           <IconLoading class="mx-auto w-[60px] pb-2" :dark="colorScheme === 'light'" />
@@ -83,7 +83,7 @@
         :loading="statsLoading"
         :error="statsError"
         @close="showStatsModal = false"
-        @apply-filter="fetchStatistics"
+        @apply-filter="fetchStatistics($event, true)"
         @retry="fetchStatistics"
       >
         <div v-if="statsData" class="space-y-8">
@@ -96,10 +96,16 @@
             />
           </section>
           <section>
-            <StatsAuthorChart :authors="statsData.author_ranking" />
+            <StatsAuthorChart
+              :authors="statsData.author_ranking"
+              @view-author="handleViewAuthor"
+            />
           </section>
           <section>
-            <StatsTagChart :tags="statsData.tag_ranking" />
+            <StatsTagChart
+              :tags="statsData.tag_ranking"
+              @view-tag="handleViewTag"
+            />
           </section>
           <section>
             <StatsDistribution
@@ -123,13 +129,17 @@
               :top-bookmarked="statsData.top_bookmarked"
               :top-viewed="statsData.top_viewed"
               :hidden-gems="statsData.hidden_gems"
+              @view-artwork="handleViewArtwork"
             />
           </section>
           <section>
             <StatsAuthorDistribution :author-dist="statsData.author_works_distribution" />
           </section>
           <section>
-            <StatsWordCloud :tags="statsData.tag_ranking" />
+            <StatsWordCloud
+              :tags="statsData.tag_ranking"
+              @view-tag="handleViewTag"
+            />
           </section>
           <section>
             <StatsR18AiTrend
@@ -141,7 +151,10 @@
             <StatsTagTrend :tag-trend="statsData.tag_trend" />
           </section>
           <section>
-            <StatsAuthorDiscovery :author-discovery="statsData.author_discovery" />
+            <StatsAuthorDiscovery
+              :author-discovery="statsData.author_discovery"
+              @view-author="handleViewAuthor"
+            />
           </section>
         </div>
       </StatsModal>
@@ -232,7 +245,7 @@ interface TopWorkData { id: number; title: string; value: number; author_name: s
 interface AuthorBucketData { label: string; count: number }
 interface R18TrendItemData { year: number; x_restrict: number; count: number }
 interface AiTrendItemData { year: number; is_ai: boolean; count: number }
-interface TagTrendItemData { year: number; tag_name: string; count: number }
+interface TagTrendItemData { year: number; tag_name: string; translated_name?: string | null; count: number }
 interface HiddenGemData { id: number; title: string; author_name: string; bookmark: number; view: number; ratio: number }
 interface AuthorDiscoveryData { author_id: number; author_name: string; author_account: string; first_year: number; works_count: number }
 interface SanityLevelBucketData { level: number; count: number }
@@ -262,7 +275,51 @@ const statsData = ref<StatisticsResultData | null>(null)
 const statsLoading = ref(false)
 const statsError = ref<string | null>(null)
 
-async function fetchStatistics(filter?: { year_min?: number | null; year_max?: number | null; r18?: string | null; is_ai?: boolean | null }) {
+function handleViewAuthor(id: number) {
+  store.filterConfig.author.id = id
+  store.filterConfig.author.enable = true
+  store.sortImages()
+  showStatsModal.value = false
+}
+
+function handleViewTag(name: string) {
+  store.filterConfig.tag.name = name
+  store.filterConfig.tag.enable = true
+  store.sortImages()
+  showStatsModal.value = false
+}
+
+async function handleViewArtwork(id: number) {
+  try {
+    const row = await invoke<any>('get_image_by_id', { id })
+    const img: Image = {
+      id: row.id,
+      part: row.part,
+      len: row.len,
+      title: row.title,
+      ext: row.ext,
+      size: [row.width, row.height] as [number, number],
+      author: { id: row.author_id, name: row.author_name, account: row.author_account },
+      tags: row.tags ?? [],
+      created_at: row.created_at,
+      sanity_level: row.sanity_level,
+      x_restrict: row.x_restrict,
+      dominant_color: '',
+      bookmark: row.bookmark,
+      view: row.view,
+      images: { s: row.img_s, m: row.img_m, l: row.img_l, o: row.img_o },
+      isAI: row.is_ai,
+    }
+    store.openImageViewer(img, () => {}, () => {}, -1)
+  } catch (e) {
+    console.error('Failed to open artwork:', e)
+  }
+}
+
+async function fetchStatistics(filter?: { year_min?: number | null; year_max?: number | null; r18?: string | null; is_ai?: boolean | null }, force = false) {
+  // Skip fetch when data already cached, unless forced (e.g. filter changed)
+  if (!force && statsData.value !== null && !filter) return
+
   statsLoading.value = true
   statsError.value = null
   try {
