@@ -1,12 +1,12 @@
 <template>
   <Transition name="fade">
     <div
-      v-if="show"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      v-show="show"
+      class="fixed inset-0 z-50 flex bg-black/60"
       @click.self="emit('close')"
     >
       <div
-        class="relative flex max-h-[90vh] w-full max-w-[90vw] flex-col rounded-2xl bg-white shadow-2xl dark:bg-[#242424] dark:text-white"
+        class="relative flex h-full w-full flex-col bg-white dark:bg-[#242424] dark:text-white"
       >
         <!-- Header -->
         <div class="flex items-center justify-between border-b px-6 py-4 dark:border-white/20">
@@ -164,6 +164,8 @@ const emit = defineEmits<{
   close: []
   'applyFilter': [filter: StatsFilter]
   retry: []
+  viewAuthor: [id: number]
+  viewTag: [name: string]
 }>()
 
 const store = useStore()
