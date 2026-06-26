@@ -16,6 +16,7 @@
         class="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-80"
         :class="hiddenTags.has(tag) ? 'opacity-40' : 'opacity-90'"
         @click="toggleTag(tag)"
+        :title="tagTranslatedName(tag)"
       >
         <span
           class="inline-block h-2.5 w-2.5 rounded-sm"
@@ -40,6 +41,7 @@ ChartJS.register(...registerables)
 interface TagTrendItem {
   year: number
   tag_name: string
+  translated_name?: string | null
   count: number
 }
 
@@ -182,6 +184,11 @@ function toggleTag(tagName: string) {
   if (next.has(tagName)) { next.delete(tagName) } else { next.add(tagName) }
   hiddenTags.value = next
   applyHidden()
+}
+
+function tagTranslatedName(name: string): string | undefined {
+  const item = props.tagTrend.find(d => d.tag_name === name)
+  return item?.translated_name ?? undefined
 }
 
 function applyHidden() {
