@@ -74,15 +74,13 @@
                 {{ index + 1 }}
               </td>
               <td class="max-w-0 px-3 py-2">
-                <a
-                  :href="userLink(author.author_id)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block truncate text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                <span
+                  class="block truncate text-blue-600 cursor-pointer transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   :title="author.author_name"
+                  @click="emit('viewAuthor', author.author_id)"
                 >
-                  {{ author.author_name }}
-                </a>
+                  {{ author.author_name || '(佚名)' }}
+                </span>
               </td>
               <td class="px-3 py-2 text-right font-medium tabular-nums">
                 {{ author.illustration_count }}
@@ -105,10 +103,14 @@
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, registerables } from 'chart.js'
 import { useStore } from '@/store'
-import { LINK_PIXIV_USER } from '@/config'
+
 
 const props = defineProps<{
   authors: AuthorStats[]
+}>()
+
+const emit = defineEmits<{
+  viewAuthor: [id: number]
 }>()
 
 ChartJS.register(...registerables)
@@ -140,10 +142,6 @@ const sortedAuthors = computed(() => {
 const top20 = computed(() => sortedAuthors.value.slice(0, 20))
 const top200 = computed(() => sortedAuthors.value.slice(0, 200))
 
-function userLink(id: number): string {
-  return LINK_PIXIV_USER.replace('{id}', String(id))
-}
-
 function formatNumber(n: number): string {
   return n.toLocaleString()
 }
@@ -166,15 +164,14 @@ const gridColor = computed(() =>
 )
 
 const chartData = computed(() => {
-  const reversed = [...top20.value].reverse()
   const colors = generateGradientColors(20)
   const label = sortMode.value === 'illustration_count' ? '作品数' : '总收藏'
   return {
-    labels: reversed.map(a => a.author_name),
+    labels: top20.value.map(a => a.author_name),
     datasets: [
       {
         label,
-        data: reversed.map(a => a[sortMode.value]),
+        data: top20.value.map(a => a[sortMode.value]),
         // bars ordered rank20→rank1 (top→bottom), gradient blue→purple (small→large)
         backgroundColor: colors,
         borderColor: colors.map((c: string) => c.replace('0.75', '1')),
@@ -209,7 +206,8 @@ const chartOptions = computed(() => ({
           return items[0]?.label ?? ''
         },
         label(ctx: any) {
-          return `作品数: ${ctx.parsed.x}`
+          const name = ctx.chart.data.labels[ctx.dataIndex] || '(佚名)'
+          return `${name}: ${ctx.parsed.x}`
         },
       },
     },
