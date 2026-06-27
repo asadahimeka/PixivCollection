@@ -130,4 +130,5 @@ pxder/data/*
 !pxder/data/.gitkeep
 pxder/src/config/config.json
 scripts/PixivCollection
+scripts/PixivCollection.7z
 .sisyphus

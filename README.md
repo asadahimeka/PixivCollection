@@ -1,9 +1,10 @@
 <h1 align="center"> ${{\color{#0398fa}Pixiv}Collection{\color{#39c5bb}.exe}}$ </h1>
-<p align="center">⭐ Pixiv 本地收藏夹管理: 爬取、下载、转换 ⭐</p>
+<p align="center">⭐ Pixiv 本地收藏夹管理: 爬取、下载、转换、阅览、统计 ⭐</p>
 
-![preview1](./docs/screenshot1.png)
-![preview3](./docs/screenshot3.png)
-![preview2](./docs/screenshot2.png)
+![preview1](./docs/1.webp)
+![preview2](./docs/2.webp)
+![preview3](./docs/3.webp)
+![preview4](./docs/4.webp)
 
 ## 简介
 
@@ -28,14 +29,14 @@ https://github.com/asadahimeka/PixivCollection/releases
   - 使用 [ffmpeg](https://www.ffmpeg.org/) 将动图(ugoira)转换为 mp4 格式，方便查看
 - 图片浏览
   - 瀑布流布局，支持虚拟列表，可自定义列数与间隔
-  - 图片浏览器，支持 PC 端和移动端的缩放、拖拽、键盘导航
+  - 图片浏览器，支持缩放、拖拽、键盘导航
   - 多页作品连续浏览
 - 图片筛选
-  - 通过发布年份、形状、尺寸、不健全度、R18、作者、标签、收藏数从数据库端筛选图片
+  - 通过发布年份、形状、尺寸、不健全度、R18、AI、作者、标签、收藏数从数据库端筛选图片
 - 图片搜索
   - 通过图片id、图片标题、作者id、作者昵称、标签、标签翻译搜索图片
 - 统计分析
-  - 收藏数据的多维度可视化，包括作者/标签排行、年度趋势、R18/AI 构成、隐藏神作等
+  - 收藏数据的多维度可视化，包括作者/标签排行、年度趋势、R18/AI 构成、标签词云等
 - 夜间模式
 - 全屏模式
 
@@ -43,6 +44,7 @@ https://github.com/asadahimeka/PixivCollection/releases
 
 > [!NOTE]
 > 构建前端需要安装 Node.js >= 20.16.0 环境及 yarn v1 包管理器
+>
 > 构建应用需要 Windows 开发环境以及 rust 开发环境，参见 [Tauri 文档](https://tauri.app/v1/guides/getting-started/prerequisites)
 
 为了方便使用，应用内置了 Node.js 与 ffmpeg，开发和部署时需手动将 `ffmpeg.exe` 和 `node.exe` 放置于 `/pxder` 内
@@ -65,14 +67,14 @@ yarn dev
 yarn install
 
 # 构建应用
-yarn build:win
+yarn build:win:7z
 ```
 
 构建后的前端文件位于 `scripts\PixivCollection` 目录，可将该目录以压缩包格式上传至应用分发服务器
 
 目录结构如下
 
-![preview4](./docs/screenshot4.png)
+![preview4](./docs/screenshot4.webp)
 
 ## Credits
 

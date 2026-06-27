@@ -323,7 +323,7 @@ function openStatsModal() {
   }
 }
 
-watch(showStatsModal, (val) => {
+watch(showStatsModal, val => {
   document.documentElement.classList.toggle('stats-modal-open', val)
 })
 
