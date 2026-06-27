@@ -211,7 +211,7 @@ impl ImageQuery {
         // ---- Ugoira ----
         if let Some(ref val) = self.ext {
             if val == "ugoira" {
-                sql.push_str(" AND i.ext = 'zip'");
+                sql.push_str(" AND i.img_o LIKE '%_ugoira0.%'");
             }
         }
 
