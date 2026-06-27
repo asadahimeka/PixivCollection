@@ -11,5 +11,6 @@ for /R "%~dp0\PixivCollection\pxder\node_modules" %%f in (*.d.ts) do del /Q "%%f
 for /R "%~dp0\PixivCollection\pxder\node_modules" %%f in (*.d.cts) do del /Q "%%f"
 for /R "%~dp0\PixivCollection\pxder\node_modules" %%f in (*.d.mts) do del /Q "%%f"
 for /R "%~dp0\PixivCollection\pxder\node_modules" %%f in (*.md) do del /Q "%%f"
-bz.exe c -l:9 -r "%~dp0\PixivCollection.7z" "%~dp0\PixivCollection"
+@REM bz.exe c -l:9 -r "%~dp0\PixivCollection.7z" "%~dp0\PixivCollection"
+7z.exe a -t7z -mx=9 -ms=on -md=256m -r "%~dp0\PixivCollection.7z" "%~dp0\PixivCollection\*"
 rmdir /Q /S "%~dp0\PixivCollection"
