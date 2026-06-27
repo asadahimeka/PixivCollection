@@ -155,14 +155,27 @@ function layoutCloud() {
     .size([width, height])
     .words(words)
     .padding(3)
-    .rotate(() => (Math.random() > 0.5 ? 0 : 90))
+    .rotate(() => {
+      const r = Math.random()
+      if (r < 0.05) return -30
+      if (r < 0.15) return -15
+      if (r < 0.25) return 15
+      if (r < 0.30) return 30
+      if (r < 0.35) return 90
+      return 0
+    })
     .font('system-ui, sans-serif')
+    .fontSize(d => d.size ?? 30)
     .spiral('archimedean')
     .on('end', (placed: cloud.Word[]) => {
       const colorByText = new Map(words.map(w => [w.text, w.color]))
+      const cx = width / 2
+      const cy = height / 2
       layoutWords.value = placed.map(w => ({
         ...w,
         text: w.text ?? '',
+        x: (w.x ?? 0) + cx,
+        y: (w.y ?? 0) + cy,
         color: colorByText.get(w.text ?? '') ?? '#888',
       })) as LayoutWord[]
     })
