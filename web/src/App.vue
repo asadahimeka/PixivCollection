@@ -323,6 +323,10 @@ function openStatsModal() {
   }
 }
 
+watch(showStatsModal, (val) => {
+  document.documentElement.classList.toggle('stats-modal-open', val)
+})
+
 async function fetchStatistics(filter?: { year_min?: number | null; year_max?: number | null; r18?: string | null; is_ai?: boolean | null }, force = false) {
   // Skip fetch when data already cached, unless forced (e.g. filter changed)
   if (!force && statsData.value !== null && !filter) return
@@ -698,5 +702,22 @@ body:has(.bookmark-update-msg) {
 .import-progress-box {
   text-align: center;
   color: white;
+}
+
+html.stats-modal-open {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+html.stats-modal-open::-webkit-scrollbar {
+  width: 8px;
+}
+
+html.stats-modal-open::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+html.stats-modal-open::-webkit-scrollbar-track {
+  background: transparent;
 }
 </style>
