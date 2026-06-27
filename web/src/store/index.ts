@@ -99,6 +99,8 @@ export const useStore = defineStore('main', {
       restrict: {
         maxSanityLevel: 6,
         r18: 'show' as 'hidden' | 'show' | 'only',
+        isAi: 'show' as 'hidden' | 'show' | 'only',
+        ugoira: false as boolean,
       },
     },
   }),
@@ -294,6 +296,10 @@ export const useStore = defineStore('main', {
         q.bookmark_min = this.filterConfig.bookmark.min
       }
       q.r18 = this.filterConfig.restrict.r18
+      q.is_ai = this.filterConfig.restrict.isAi
+      if (this.filterConfig.restrict.ugoira) {
+        q.ext = 'ugoira'
+      }
       q.max_sanity_level = this.filterConfig.restrict.maxSanityLevel
       return q
     },

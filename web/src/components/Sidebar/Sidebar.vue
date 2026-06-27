@@ -220,6 +220,31 @@
             仅显示
           </option>
         </select>
+        <br>
+        AI:
+        <select
+          v-model="filterConfig.restrict.isAi"
+          class="mx-1 rounded-md border px-1 py-0.5 transition-colors hover:border-blue-500 dark:border-white/20 dark:bg-[#1a1a1a] dark:hover:border-blue-500"
+        >
+          <option value="hidden">
+            隐藏
+          </option>
+          <option value="show">
+            显示
+          </option>
+          <option value="only">
+            仅显示
+          </option>
+        </select>
+        动图:
+        <label class="inline-flex cursor-pointer items-center">
+          <input
+            v-model="filterConfig.restrict.ugoira"
+            type="checkbox"
+            class="mx-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-white/20 dark:bg-[#1a1a1a]"
+          >
+          <span class="text-sm">仅显示动图</span>
+        </label>
       </SidebarBlock>
       <SidebarBlock>
         年份

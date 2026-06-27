@@ -39,6 +39,10 @@ pub struct ImageQuery {
     /// `"hidden"` (hide R18), `"only"` (R18 only), or `"show"` (no filter).
     pub r18: Option<String>,
     pub max_sanity_level: Option<i64>,
+    /// `"hidden"` (hide AI), `"only"` (AI only), or `"show"` (no filter).
+    pub is_ai: Option<String>,
+    /// `"ugoira"` (only ugoira/animated), or absent (no filter).
+    pub ext: Option<String>,
     /// Stable seed for deterministic random ordering.
     /// When `sort_by = "random"` and a seed is provided, uses
     /// `(id * seed + part * 7919) % 2147483647` instead of `RANDOM()`
@@ -192,6 +196,22 @@ impl ImageQuery {
                 "hidden" => sql.push_str(" AND i.x_restrict < 1"),
                 "only" => sql.push_str(" AND i.x_restrict >= 1"),
                 _ => { /* "show" or unknown – no filter */ }
+            }
+        }
+
+        // ---- AI ----
+        if let Some(ref val) = self.is_ai {
+            match val.as_str() {
+                "hidden" => sql.push_str(" AND i.is_ai = 0"),
+                "only" => sql.push_str(" AND i.is_ai = 1"),
+                _ => { /* "show" or unknown – no filter */ }
+            }
+        }
+
+        // ---- Ugoira ----
+        if let Some(ref val) = self.ext {
+            if val == "ugoira" {
+                sql.push_str(" AND i.ext = 'zip'");
             }
         }
 
