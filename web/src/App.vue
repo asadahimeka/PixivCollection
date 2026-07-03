@@ -537,17 +537,15 @@ onUnmounted(() => {
 })
 
 const isInit = ref(false)
+const filterKey = computed(() => JSON.stringify(store.buildFilterQuery()))
+
 watch(
-  () => store.filterConfig,
+  filterKey,
   useDebounceFn(() => {
     if (!isInit.value) return
-    store.curPageCursor = 0
-    store.loadEnd = false
-    store.imagesFiltered = []
-    store.loadImagesByPage(true)
+    store.sortImages()
     document.documentElement.scrollTop = 0
   }, 250),
-  { deep: true },
 )
 
 async function init() {

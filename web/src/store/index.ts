@@ -131,11 +131,9 @@ export const useStore = defineStore('main', {
         query.limit = 60
         query.sort_by = this.masonryConfig.imageSortBy
         if (this.masonryConfig.imageSortBy === 'random' && this.randomSeed) { query.random_seed = this.randomSeed }
-        console.time('[TIMING] query_images')
         const result = await invoke<any>('query_images', {
           query,
         })
-        console.timeEnd('[TIMING] query_images')
         // Transform flat Rust fields → frontend nested format
         const images: Image[] = result.images.map((img: any) => ({
           id: img.id,
@@ -185,9 +183,7 @@ export const useStore = defineStore('main', {
         return
       }
       try {
-        console.time('[TIMING] query_image_counts')
         const result = await invoke<any>('query_image_counts', { query })
-        console.timeEnd('[TIMING] query_image_counts')
         this.filteredCounts.total = result.total
         this.filteredCounts.illustCount = result.illust_count
         this.filteredCounts.authorCount = result.author_count
