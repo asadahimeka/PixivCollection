@@ -73,10 +73,21 @@ const imagesPlaced = computed(() => {
     colsTop[colPlace] += item.height + masonryConfig.value.gap + (masonryConfig.value.infoAtBottom ? MASONRY_INFO_AREA_HEIGHT : 0)
     result.push(Object.freeze(item))
   }
-  containerHeight.value = Math.max(...colsTop)
-
   return result
 })
+
+// Sync container height from masonry layout (separate from computed to avoid side effects)
+watch(imagesPlaced, placed => {
+  if (placed.length === 0) {
+    containerHeight.value = 0
+    return
+  }
+  const maxBottom = placed.reduce((max, item) => {
+    const itemBottom = item.top + item.height + (masonryConfig.value.infoAtBottom ? MASONRY_INFO_AREA_HEIGHT : 0)
+    return Math.max(max, itemBottom)
+  }, 0)
+  containerHeight.value = maxBottom + masonryConfig.value.gap
+}, { immediate: true })
 
 const imagesRenderList = computed(() => {
   if (!masonryConfig.value.virtualListEnable) { return imagesPlaced.value }
