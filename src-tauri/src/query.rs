@@ -367,6 +367,195 @@ impl ImageQuery {
         (sql, params)
     }
 
+    /// Build WHERE clause optimized for COUNT queries (no correlated subqueries).
+    ///
+    /// Same filter conditions as `build_where()`, but converts correlated
+    /// `EXISTS(SELECT ... WHERE it.image_id = i.id ...)` subqueries to
+    /// non-correlated `i.id IN (SELECT ...)` so that COUNT queries do not
+    /// re-evaluate the subquery for every row in the outer table.
+    ///
+    /// Used only by `build_counts_sql()` and `build_tag_count_sql()`.
+    /// `query_images` continues to use `build_where()` (fine because LIMIT 60
+    /// bounds the subquery executions).
+    fn build_count_where(&self) -> (String, Vec<Box<dyn ToSql>>) {
+        let mut sql = String::new();
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        let mut pi = 0u32;
+
+        // ---- R18 ----
+        if let Some(ref val) = self.r18 {
+            match val.as_str() {
+                "hidden" => sql.push_str(" AND i.x_restrict < 1"),
+                "only" => sql.push_str(" AND i.x_restrict >= 1"),
+                _ => { /* "show" or unknown – no filter */ }
+            }
+        }
+
+        // ---- AI ----
+        if let Some(ref val) = self.is_ai {
+            match val.as_str() {
+                "hidden" => sql.push_str(" AND i.is_ai = 0"),
+                "only" => sql.push_str(" AND i.is_ai = 1"),
+                _ => { /* "show" or unknown – no filter */ }
+            }
+        }
+
+        // ---- Ugoira ----
+        if let Some(ref val) = self.ext {
+            if val == "ugoira" {
+                sql.push_str(" AND i.img_o LIKE '%_ugoira0.%'");
+            }
+        }
+
+        // ---- Max sanity level ----
+        if let Some(sl) = self.max_sanity_level {
+            let n = push_param(&mut pi, &mut params, sl);
+            sql.push_str(&format!(" AND i.sanity_level <= ?{}", n));
+        }
+
+        // ---- Search (multi-field case-insensitive) ----
+        // NOTE: tag-search part uses IN (non-correlated) instead of EXISTS
+        if let Some(ref term) = self.search {
+            let pattern = format!("%{}%", term.to_lowercase());
+            let n = push_param(&mut pi, &mut params, pattern);
+            sql.push_str(&format!(
+                " AND (CAST(i.id AS TEXT) LIKE ?{} \
+                 OR i.title LIKE ?{} \
+                 OR CAST(i.author_id AS TEXT) LIKE ?{} \
+                 OR i.author_name LIKE ?{} \
+                 OR i.id IN ( \
+                     SELECT it.image_id FROM image_tags it \
+                     JOIN tags t ON it.tag_id = t.id \
+                     WHERE (LOWER(t.name) LIKE LOWER(?{}) \
+                       OR LOWER(t.translated_name) LIKE LOWER(?{})) \
+                   ))",
+                n, n, n, n, n, n,
+            ));
+        }
+
+        // ---- Bookmark ----
+        if let Some(bm) = self.bookmark_min {
+            if bm == -1 {
+                sql.push_str(" AND i.bookmark = -1");
+            } else if bm >= 0 {
+                let n = push_param(&mut pi, &mut params, bm);
+                sql.push_str(&format!(" AND i.bookmark >= ?{}", n));
+            }
+        }
+
+        // ---- Year (range comparison for index usage) ----
+        if let Some(y) = self.year {
+            if y == 1 {
+                sql.push_str(" AND i.created_at < '2000-01-01'");
+            } else if y > 1 {
+                let year_start = format!("{}-01-01", y);
+                let year_end = format!("{}-01-01", y + 1);
+                let n1 = push_param(&mut pi, &mut params, year_start);
+                let n2 = push_param(&mut pi, &mut params, year_end);
+                sql.push_str(&format!(
+                    " AND i.created_at >= ?{} AND i.created_at < ?{}",
+                    n1, n2,
+                ));
+            }
+        }
+
+        // ---- Tag (exact name match) ----
+        // NOTE: uses IN (non-correlated) instead of EXISTS
+        if let Some(ref t) = self.tag {
+            let n = push_param(&mut pi, &mut params, t.clone());
+            sql.push_str(&format!(
+                " AND i.id IN ( \
+                     SELECT it.image_id FROM image_tags it \
+                     JOIN tags t ON it.tag_id = t.id \
+                     WHERE t.name = ?{} \
+                   )",
+                n,
+            ));
+        }
+
+        // ---- Author ----
+        if let Some(aid) = self.author_id {
+            let n = push_param(&mut pi, &mut params, aid);
+            sql.push_str(&format!(" AND i.author_id = ?{}", n));
+        }
+
+        // ---- Shape ----
+        if let Some(ref s) = self.shape {
+            match s.as_str() {
+                "horizontal" => {
+                    sql.push_str(" AND i.width > i.height * 1.1");
+                }
+                "vertical" => {
+                    sql.push_str(" AND i.width < i.height * 0.9");
+                }
+                "square" => {
+                    sql.push_str(
+                        " AND i.width BETWEEN i.height * 0.9 AND i.height * 1.1",
+                    );
+                }
+                "ratio-4:3" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 3 - i.height * 4) * 100 \
+                         <= (i.width * 3 + i.height * 4) / 2",
+                    );
+                }
+                "ratio-16:9" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 9 - i.height * 16) * 100 \
+                         <= (i.width * 9 + i.height * 16) / 2",
+                    );
+                }
+                "ratio-21:9" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 9 - i.height * 21) * 100 \
+                         <= (i.width * 9 + i.height * 21) / 2",
+                    );
+                }
+                "ratio-3:4" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 4 - i.height * 3) * 100 \
+                         <= (i.width * 4 + i.height * 3) / 2",
+                    );
+                }
+                "ratio-9:16" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 16 - i.height * 9) * 100 \
+                         <= (i.width * 16 + i.height * 9) / 2",
+                    );
+                }
+                "ratio-9:21" => {
+                    sql.push_str(
+                        " AND ABS(i.width * 21 - i.height * 9) * 100 \
+                         <= (i.width * 21 + i.height * 9) / 2",
+                    );
+                }
+                _ => { /* unknown shape – skip */ }
+            }
+        }
+
+        // ---- Width range ----
+        if let Some(w) = self.width_min {
+            let n = push_param(&mut pi, &mut params, w);
+            sql.push_str(&format!(" AND i.width >= ?{}", n));
+        }
+        if let Some(w) = self.width_max {
+            let n = push_param(&mut pi, &mut params, w);
+            sql.push_str(&format!(" AND i.width <= ?{}", n));
+        }
+
+        // ---- Height range ----
+        if let Some(h) = self.height_min {
+            let n = push_param(&mut pi, &mut params, h);
+            sql.push_str(&format!(" AND i.height >= ?{}", n));
+        }
+        if let Some(h) = self.height_max {
+            let n = push_param(&mut pi, &mut params, h);
+            sql.push_str(&format!(" AND i.height <= ?{}", n));
+        }
+
+        (sql, params)
+    }
+
     /// Build a paginated `SELECT` with ORDER BY, LIMIT, and OFFSET.
     ///
     /// Callers should execute the returned SQL with `rusqlite::params_from_iter`
@@ -433,7 +622,7 @@ impl ImageQuery {
     /// Build a multi-count query returning `total`, `illust_count`, and
     /// `author_count` using the same filters.
     pub fn build_counts_sql(&self) -> (String, Vec<Box<dyn ToSql>>) {
-        let (where_clause, params) = self.build_where();
+        let (where_clause, params) = self.build_count_where();
         let mut sql = String::from(COUNTS_SELECT);
         sql.push_str(&where_clause);
         (sql, params)
@@ -442,7 +631,7 @@ impl ImageQuery {
     /// Build a `COUNT(DISTINCT t.name)` query for tag count using the same
     /// filters.
     pub fn build_tag_count_sql(&self) -> (String, Vec<Box<dyn ToSql>>) {
-        let (where_clause, params) = self.build_where();
+        let (where_clause, params) = self.build_count_where();
         let mut sql = String::from(TAG_COUNT_SELECT);
         sql.push_str(&where_clause);
         (sql, params)
