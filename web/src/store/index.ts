@@ -177,6 +177,7 @@ export const useStore = defineStore('main', {
       const hasActiveFilters = Object.entries(query).some(([k, v]) => {
         if (k === 'r18') return v !== 'show'
         if (k === 'is_ai') return v !== 'show'
+        if (k === 'max_sanity_level') return v !== 6 // 6 = 显示全部
         return true // 任意其他字段 = 有过滤
       })
       if (!hasActiveFilters) {
